@@ -3,12 +3,12 @@ node_modules/
 dist/
 .vite/
 
-# Environment variables
+# Environment variables (but allow .env.production for Render deployment)
 .env
 .env.local
 .env.development.local
 .env.test.local
-.env.production.local
+server/.env
 
 # Logs
 npm-debug.log*
