@@ -1,0 +1,35 @@
+# Render.com Blueprint for StudyFire
+# This file enables one-click deployment to Render
+
+services:
+  # Backend API Server
+  - type: web
+    name: studyfire-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: PORT
+        value: 5000
+    healthCheckPath: /api/health
+
+  # Frontend React App
+  - type: web
+    name: studyfire-frontend
+    env: static
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
