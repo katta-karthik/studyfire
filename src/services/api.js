@@ -1,5 +1,5 @@
 // Use environment variable for API URL (supports both dev and production)
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
 
 // Helper to get userId
 const getUserId = () => localStorage.getItem('userId');
