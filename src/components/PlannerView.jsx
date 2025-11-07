@@ -67,6 +67,8 @@ export default function PlannerView({ user }) {
     } catch (error) {
       console.error('Error toggling completion:', error);
     }
+  };
+
   const changeDate = (days) => {
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + days);

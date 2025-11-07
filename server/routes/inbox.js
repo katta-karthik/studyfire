@@ -4,16 +4,37 @@ const InboxTask = require('../models/InboxTask');
 const DailySchedule = require('../models/DailySchedule');
 const CalendarEvent = require('../models/CalendarEvent');
 
+// Helper function to round time to nearest hour (railway/24h format)
+function roundTimeToNearestHour(timeStr) {
+  if (!timeStr) return timeStr;
+  
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  
+  // If minutes >= 30, round up to next hour
+  // If minutes < 30, round down to current hour
+  let roundedHour = minutes >= 30 ? hours + 1 : hours;
+  
+  // Handle 24-hour wrap (23:45 → 00:00)
+  if (roundedHour >= 24) roundedHour = 0;
+  
+  // Format as HH:00 (railway time, 24-hour format)
+  return `${roundedHour.toString().padStart(2, '0')}:00`;
+}
+
 // Helper function to sync task to Planner
 async function syncToPlanner(taskData) {
   try {
     const { userId, reminderDate, reminderTime, task } = taskData;
     if (!userId || !reminderDate || !reminderTime) return;
     
-    // Find or create schedule for that day
-    const dateOnly = new Date(reminderDate);
-    dateOnly.setHours(0, 0, 0, 0);
+    // Round the time to nearest hour
+    const roundedTime = roundTimeToNearestHour(reminderTime);
     
+    // Format date as YYYY-MM-DD
+    const dateOnly = new Date(reminderDate);
+    const dateStr = dateOnly.toISOString().split('T')[0];
+    
+    // Find or create schedule for that day
     let schedule = await DailySchedule.findOne({
       userId,
       date: dateOnly
@@ -26,14 +47,18 @@ async function syncToPlanner(taskData) {
         date: dateOnly,
         schedule: generateDefaultSchedule()
       });
+      await schedule.save();
     }
     
     // Find the time block and update it
-    const timeBlock = schedule.schedule.find(block => block.time === reminderTime);
+    const timeBlock = schedule.schedule.find(block => block.time === roundedTime);
     if (timeBlock) {
       timeBlock.task = task;
       timeBlock.linkedEventId = taskData._id;
       await schedule.save();
+      console.log(`✅ Synced to Planner: ${task} at ${roundedTime} on ${dateStr}`);
+    } else {
+      console.log(`⚠️ Time block not found: ${roundedTime}`);
     }
   } catch (error) {
     console.error('Error syncing to planner:', error);
@@ -102,12 +127,17 @@ function calculateCategory(reminderDate) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const taskDate = new Date(reminder.getFullYear(), reminder.getMonth(), reminder.getDate());
   
-  // Check if it's TODAY
+  // Check if it's TODAY (most important check - do this FIRST)
   if (taskDate.getTime() === today.getTime()) {
     return 'today';
   }
   
-  // Check if it's THIS WEEK (Sunday to Saturday of current week)
+  // Check if it's in the PAST (overdue = today category)
+  if (taskDate < today) {
+    return 'today';
+  }
+  
+  // Check if it's THIS WEEK (Sunday to Saturday of current week, EXCLUDING today)
   const currentDayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
   const startOfWeek = new Date(today);
   startOfWeek.setDate(today.getDate() - currentDayOfWeek); // Go back to Sunday
@@ -115,18 +145,14 @@ function calculateCategory(reminderDate) {
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
   
-  if (taskDate >= startOfWeek && taskDate <= endOfWeek && taskDate > today) {
+  // Task is in THIS WEEK if: between Sunday and Saturday AND after today
+  if (taskDate > today && taskDate >= startOfWeek && taskDate <= endOfWeek) {
     return 'week';
   }
   
-  // Check if it's THIS MONTH
+  // Check if it's THIS MONTH (EXCLUDING today and this week)
   if (taskDate.getMonth() === today.getMonth() && taskDate.getFullYear() === today.getFullYear()) {
     return 'month';
-  }
-  
-  // Check if it's in the PAST (overdue = today)
-  if (taskDate < today) {
-    return 'today';
   }
   
   // Everything else is SOMEDAY (future months)
