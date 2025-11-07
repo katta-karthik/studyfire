@@ -24,7 +24,7 @@ export default function PageEditor({ page, onClose, user }) {
   const [title, setTitle] = useState(page.title);
   const [content, setContent] = useState(page.content);
   const [coverImage, setCoverImage] = useState(page.coverImage);
-  const [tags, setTags] = useState(page.tags || []);
+  const [tags, setTags] = useState(Array.isArray(page.tags) ? page.tags : []);
   const [deadline, setDeadline] = useState(
     page.deadline ? new Date(page.deadline).toISOString().split('T')[0] : ''
   );
@@ -311,7 +311,7 @@ export default function PageEditor({ page, onClose, user }) {
             <div className="flex items-center gap-2">
               <Tag className="w-4 h-4 text-gray-400" />
               <div className="flex flex-wrap gap-2">
-                {tags.map((tag, i) => (
+                {Array.isArray(tags) && tags.map((tag, i) => (
                   <span
                     key={i}
                     className="px-3 py-1 bg-gray-800 rounded-lg text-sm flex items-center gap-2 group"

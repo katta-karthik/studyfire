@@ -133,7 +133,7 @@ export default function PagesView({ user }) {
                 </div>
 
                 {/* Tags */}
-                {page.tags && page.tags.length > 0 && (
+                {page.tags && Array.isArray(page.tags) && page.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {page.tags.slice(0, 3).map((tag, i) => (
                       <span
@@ -214,7 +214,7 @@ export default function PagesView({ user }) {
                 <h3 className="font-bold text-white group-hover:text-orange-500 transition-colors">
                   {page.title}
                 </h3>
-                {page.tags && page.tags.length > 0 && (
+                {page.tags && Array.isArray(page.tags) && page.tags.length > 0 && (
                   <div className="flex gap-2 mt-1">
                     {page.tags.slice(0, 5).map((tag, i) => (
                       <span key={i} className="text-xs text-gray-400">
