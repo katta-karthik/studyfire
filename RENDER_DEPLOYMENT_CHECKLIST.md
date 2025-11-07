@@ -21,7 +21,7 @@ Your backend is already deployed, but it needs the MongoDB connection:
 3. Click **"Environment"** tab on the left
 4. **Update or Add** this environment variable:
    - **Key**: `MONGODB_URI`
-   - **Value**: `mongodb+srv://katta:1234@cluster0.s4rai.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`
+   - **Value**: `YOUR_MONGODB_CONNECTION_STRING` (get from MongoDB Atlas)
 5. Click **"Save Changes"**
 6. **Backend will auto-restart** (takes 1-2 minutes)
 
@@ -39,7 +39,7 @@ Your backend is already deployed, but it needs the MongoDB connection:
 
    **Variable 2:**
    - **Key**: `VITE_GEMINI_API_KEY`
-   - **Value**: `AIzaSyDL9sjZekkN5tQSSKzwl-W3bNWg-Yq_CIU`
+   - **Value**: `YOUR_GEMINI_API_KEY`
 
 4. Click **"Save Changes"**
 5. **Frontend will auto-redeploy** (takes 1-2 minutes)

@@ -16,7 +16,7 @@
 3. Click: **Environment** (left sidebar)
 4. Add variable:
    - Key: `MONGODB_URI`
-   - Value: `mongodb+srv://katta:1234@cluster0.s4rai.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`
+   - Value: `YOUR_MONGODB_CONNECTION_STRING` (from MongoDB Atlas)
 5. Click: **Save Changes**
 6. Wait 2 minutes for restart
 
@@ -33,7 +33,7 @@
 
 **Second:**
 - Key: `VITE_GEMINI_API_KEY`
-- Value: `AIzaSyDL9sjZekkN5tQSSKzwl-W3bNWg-Yq_CIU`
+- Value: `YOUR_GEMINI_API_KEY`
 
 4. Click: **Save Changes**
 5. Wait 2 minutes for redeploy

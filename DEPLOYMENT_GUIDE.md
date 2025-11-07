@@ -51,7 +51,7 @@ git push -u origin main
    - **Start Command**: `cd server && npm start`
 6. Click **"Advanced"** → Add Environment Variable:
    - **Key**: `MONGODB_URI`
-   - **Value**: `mongodb+srv://katta:1234@cluster0.s4rai.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`
+   - **Value**: `YOUR_MONGODB_CONNECTION_STRING` (from Step 1)
 7. Click **"Create Web Service"**
 8. **COPY THE URL** (e.g., `https://studyfire-backend.onrender.com`)
 
@@ -68,7 +68,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onren
 3. Create `.env.production` file:
 ```env
 VITE_API_URL=https://studyfire-backend.onrender.com/api
-VITE_GEMINI_API_KEY=AIzaSyDL9sjZekkN5tQSSKzwl-W3bNWg-Yq_CIU
+VITE_GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 ```
 
 4. Push to GitHub:
@@ -93,7 +93,7 @@ git push
    - **Key**: `VITE_API_URL`
    - **Value**: `https://studyfire-backend.onrender.com/api`
    - **Key**: `VITE_GEMINI_API_KEY`
-   - **Value**: `AIzaSyDL9sjZekkN5tQSSKzwl-W3bNWg-Yq_CIU`
+   - **Value**: `YOUR_GEMINI_API_KEY`
 5. Click **"Create Static Site"**
 
 ---
