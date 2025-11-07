@@ -8,13 +8,22 @@ const app = express();
 // Middleware - CORS with explicit configuration
 app.use(cors({
   origin: '*', // Allow all origins for development
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Handle preflight requests for all routes
+app.options('*', cors());
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
 
 // MongoDB Connection with better error handling
 mongoose.connect(process.env.MONGODB_URI, {
@@ -93,11 +102,17 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'StudyFire API',
-    version: '1.0.0',
+    version: '2.0.0',
     endpoints: {
       health: '/api/health',
       challenges: '/api/challenges',
-      stats: '/api/challenges/stats/summary'
+      auth: '/api/auth',
+      timeEntries: '/api/time-entries',
+      pages: '/api/pages',
+      calendar: '/api/calendar',
+      planner: '/api/planner',
+      inbox: '/api/inbox',
+      notifications: '/api/notifications'
     }
   });
 });
