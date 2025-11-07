@@ -8,8 +8,13 @@ export const useChallenges = (isLoggedIn) => {
 
   // Load challenges from backend
   useEffect(() => {
-    loadChallenges();
-  }, []);
+    if (isLoggedIn) {
+      loadChallenges();
+    } else {
+      setChallenges([]);
+      setLoading(false);
+    }
+  }, [isLoggedIn]);
 
   const loadChallenges = async () => {
     try {
