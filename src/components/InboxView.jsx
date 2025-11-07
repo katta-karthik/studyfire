@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, Trash2, CheckCircle, Clock, Tag } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Trash2, CheckCircle, Clock, Calendar, Bell, Edit2, X } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
 
 export default function InboxView({ user }) {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
-  const [estimatedTime, setEstimatedTime] = useState(30);
-  const [filter, setFilter] = useState('all');
+  const [reminderDate, setReminderDate] = useState('');
+  const [reminderTime, setReminderTime] = useState('');
+  const [filter, setFilter] = useState('unprocessed');
+  const [editingTask, setEditingTask] = useState(null);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
 
   useEffect(() => {
     fetchTasks();
@@ -16,12 +20,13 @@ export default function InboxView({ user }) {
 
   const fetchTasks = async () => {
     try {
-      const query = filter === 'all' ? '' : `?category=${filter}`;
-      const response = await fetch(`${API_URL}/inbox?userId=${user._id}${query}`);
+      const query = `?userId=${user._id}&category=${filter}`;
+      const response = await fetch(`${API_URL}/inbox${query}`);
       const data = await response.json();
-      setTasks(data);
+      setTasks(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      setTasks([]);
     }
   };
 
@@ -29,36 +34,77 @@ export default function InboxView({ user }) {
     if (!newTask.trim()) return;
 
     try {
+      const taskData = {
+        userId: user._id,
+        task: newTask,
+      };
+
+      // Add reminder date/time if provided
+      if (reminderDate) {
+        taskData.reminderDate = reminderDate;
+        if (reminderTime) {
+          taskData.reminderTime = reminderTime;
+        }
+      }
+
       const response = await fetch(`${API_URL}/inbox`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user._id,
-          task: newTask,
-          estimatedTime,
-          category: 'unprocessed',
-        }),
+        body: JSON.stringify(taskData),
       });
       const savedTask = await response.json();
-      setTasks([savedTask, ...tasks]);
+      
+      // Only add to current view if it matches the filter
+      if (filter === 'unprocessed' && !reminderDate) {
+        setTasks([savedTask, ...tasks]);
+      } else if (filter === savedTask.category) {
+        setTasks([savedTask, ...tasks]);
+      }
+      
       setNewTask('');
-      setEstimatedTime(30);
+      setReminderDate('');
+      setReminderTime('');
+      fetchTasks(); // Refresh to show in correct category
     } catch (error) {
       console.error('Error adding task:', error);
     }
   };
 
-  const categorizeTask = async (taskId, category) => {
+  const toggleComplete = async (taskId) => {
     try {
-      const response = await fetch(`${API_URL}/inbox/${taskId}/process`, {
+      const response = await fetch(`${API_URL}/inbox/${taskId}/complete`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category }),
       });
       const updatedTask = await response.json();
-      setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
+      
+      // Remove from current view if completed
+      if (updatedTask.isCompleted) {
+        setTasks(tasks.filter(t => t._id !== taskId));
+      } else {
+        setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
+      }
     } catch (error) {
-      console.error('Error categorizing task:', error);
+      console.error('Error toggling completion:', error);
+    }
+  };
+
+  const updateTaskDateTime = async (taskId, date, time) => {
+    try {
+      const response = await fetch(`${API_URL}/inbox/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reminderDate: date || null,
+          reminderTime: time || null,
+        }),
+      });
+      const updatedTask = await response.json();
+      setEditingTask(null);
+      setEditDate('');
+      setEditTime('');
+      fetchTasks(); // Refresh to show in correct category
+    } catch (error) {
+      console.error('Error updating task:', error);
     }
   };
 
@@ -72,13 +118,19 @@ export default function InboxView({ user }) {
   };
 
   const categories = [
-    { id: 'all', label: 'All', color: 'gray' },
-    { id: 'unprocessed', label: 'Unprocessed', color: 'yellow' },
-    { id: 'today', label: 'Today', color: 'red' },
-    { id: 'week', label: 'This Week', color: 'orange' },
-    { id: 'month', label: 'This Month', color: 'blue' },
-    { id: 'someday', label: 'Someday', color: 'purple' },
+    { id: 'unprocessed', label: 'Unprocessed', color: 'yellow', icon: '📝' },
+    { id: 'today', label: 'Today', color: 'red', icon: '🔥' },
+    { id: 'week', label: 'This Week', color: 'orange', icon: '📅' },
+    { id: 'month', label: 'This Month', color: 'blue', icon: '📆' },
+    { id: 'completed', label: 'Completed', color: 'green', icon: '✅' },
   ];
+
+  const formatDateTime = (date, time) => {
+    if (!date) return 'No reminder set';
+    const dateObj = new Date(date);
+    const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return time ? `${dateStr} at ${time}` : dateStr;
+  };
 
   return (
     <div className="space-y-6">
@@ -92,33 +144,53 @@ export default function InboxView({ user }) {
           <Plus className="w-6 h-6 text-orange-500" />
           Brain Dump
         </h2>
-        <div className="flex gap-4">
+        <div className="space-y-4">
           <input
             type="text"
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && addTask()}
             placeholder="What's on your mind?"
-            className="flex-1 bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
-          <div className="flex items-center gap-2 bg-gray-700/50 border border-gray-600 rounded-xl px-4">
-            <Clock className="w-4 h-4 text-gray-400" />
-            <input
-              type="number"
-              value={estimatedTime}
-              onChange={(e) => setEstimatedTime(parseInt(e.target.value))}
-              min="5"
-              max="480"
-              className="w-16 bg-transparent text-white focus:outline-none"
-            />
-            <span className="text-gray-400 text-sm">min</span>
+          
+          <div className="flex gap-4">
+            <div className="flex-1 flex items-center gap-2 bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-2">
+              <Calendar className="w-4 h-4 text-gray-400" />
+              <input
+                type="date"
+                value={reminderDate}
+                onChange={(e) => setReminderDate(e.target.value)}
+                className="flex-1 bg-transparent text-white text-sm focus:outline-none"
+                placeholder="Date (optional)"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2 bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-2">
+              <Clock className="w-4 h-4 text-gray-400" />
+              <input
+                type="time"
+                value={reminderTime}
+                onChange={(e) => setReminderTime(e.target.value)}
+                className="bg-transparent text-white text-sm focus:outline-none"
+                placeholder="Time (optional)"
+              />
+            </div>
+            
+            <button
+              onClick={addTask}
+              className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-8 py-2 rounded-xl font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all whitespace-nowrap"
+            >
+              Add Task
+            </button>
           </div>
-          <button
-            onClick={addTask}
-            className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all"
-          >
-            Add
-          </button>
+          
+          {(reminderDate || reminderTime) && (
+            <p className="text-xs text-gray-400 flex items-center gap-2">
+              <Bell className="w-3 h-3" />
+              {reminderDate ? 'Reminder set for ' + formatDateTime(reminderDate, reminderTime) : 'Please select a date'}
+            </p>
+          )}
         </div>
       </motion.div>
 
@@ -128,12 +200,13 @@ export default function InboxView({ user }) {
           <button
             key={cat.id}
             onClick={() => setFilter(cat.id)}
-            className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-all ${
               filter === cat.id
                 ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white'
                 : 'bg-gray-800/50 text-gray-400 hover:text-white'
             }`}
           >
+            <span>{cat.icon}</span>
             {cat.label}
           </button>
         ))}
@@ -147,7 +220,13 @@ export default function InboxView({ user }) {
             animate={{ opacity: 1 }}
             className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-12 text-center border border-gray-700/30"
           >
-            <p className="text-gray-400 text-lg">No tasks yet. Start adding some!</p>
+            <p className="text-gray-400 text-lg">
+              {filter === 'unprocessed' && 'No unprocessed tasks. Add one above!'}
+              {filter === 'today' && 'No tasks for today. Looking good! 🔥'}
+              {filter === 'week' && 'No tasks this week. You\'re ahead! 📅'}
+              {filter === 'month' && 'No tasks this month. Plan ahead! 📆'}
+              {filter === 'completed' && 'No completed tasks yet. Get to work! 💪'}
+            </p>
           </motion.div>
         ) : (
           tasks.map((task, index) => (
@@ -156,43 +235,55 @@ export default function InboxView({ user }) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50 hover:border-orange-500/50 transition-all group"
+              className={`bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border transition-all group ${
+                task.isCompleted
+                  ? 'border-green-500/30 bg-green-900/10'
+                  : 'border-gray-700/50 hover:border-orange-500/50'
+              }`}
             >
               <div className="flex items-start gap-4">
-                <div className="flex-1">
-                  <p className="text-white font-medium mb-2">{task.task}</p>
-                  <div className="flex items-center gap-3 text-sm text-gray-400">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      {task.estimatedTime} min
-                    </span>
-                    {task.isProcessed && (
-                      <span className="flex items-center gap-1 text-green-400">
-                        <CheckCircle className="w-4 h-4" />
-                        Processed
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Categorize Buttons */}
-                {!task.isProcessed && (
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {['today', 'week', 'month', 'someday'].map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => categorizeTask(task._id, cat)}
-                        className="px-3 py-1 bg-gray-700 hover:bg-orange-500 rounded-lg text-xs font-medium transition-colors"
-                        title={`Move to ${cat}`}
-                      >
-                        {cat === 'today' && '🔥'}
-                        {cat === 'week' && '📅'}
-                        {cat === 'month' && '📆'}
-                        {cat === 'someday' && '💭'}
-                      </button>
-                    ))}
-                  </div>
+                {/* Checkbox */}
+                {filter !== 'completed' && (
+                  <button
+                    onClick={() => toggleComplete(task._id)}
+                    className={`flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all mt-1 ${
+                      task.isCompleted
+                        ? 'bg-green-500 border-green-500'
+                        : 'border-gray-500 hover:border-orange-500'
+                    }`}
+                  >
+                    {task.isCompleted && <CheckCircle className="w-4 h-4 text-white" />}
+                  </button>
                 )}
+
+                <div className="flex-1">
+                  <p className={`font-medium mb-2 ${task.isCompleted ? 'line-through text-gray-400' : 'text-white'}`}>
+                    {task.task}
+                  </p>
+                  
+                  {/* Reminder Info */}
+                  {task.reminderDate && (
+                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+                      <Bell className="w-4 h-4" />
+                      <span>{formatDateTime(task.reminderDate, task.reminderTime)}</span>
+                    </div>
+                  )}
+
+                  {/* Edit DateTime Button (only for unprocessed) */}
+                  {filter === 'unprocessed' && !task.isCompleted && (
+                    <button
+                      onClick={() => {
+                        setEditingTask(task._id);
+                        setEditDate(task.reminderDate ? new Date(task.reminderDate).toISOString().split('T')[0] : '');
+                        setEditTime(task.reminderTime || '');
+                      }}
+                      className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      {task.reminderDate ? 'Edit reminder' : 'Set reminder'}
+                    </button>
+                  )}
+                </div>
 
                 {/* Delete Button */}
                 <button
@@ -206,6 +297,79 @@ export default function InboxView({ user }) {
           ))
         )}
       </div>
+
+      {/* Edit DateTime Modal */}
+      <AnimatePresence>
+        {editingTask && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setEditingTask(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-gray-700"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-orange-500" />
+                  Set Reminder
+                </h3>
+                <button
+                  onClick={() => setEditingTask(null)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm text-gray-400 mb-2 block">Date</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400 mb-2 block">Time (optional)</label>
+                  <input
+                    type="time"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => updateTaskDateTime(editingTask, editDate, editTime)}
+                    className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 rounded-xl font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all"
+                  >
+                    Save Reminder
+                  </button>
+                  <button
+                    onClick={() => {
+                      updateTaskDateTime(editingTask, null, null);
+                    }}
+                    className="px-4 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-all"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

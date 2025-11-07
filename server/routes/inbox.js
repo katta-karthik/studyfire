@@ -2,18 +2,36 @@ const express = require('express');
 const router = express.Router();
 const InboxTask = require('../models/InboxTask');
 
+// Helper function to calculate category based on date
+function calculateCategory(reminderDate) {
+  if (!reminderDate) return 'unprocessed';
+  
+  const now = new Date();
+  const reminder = new Date(reminderDate);
+  const diffTime = reminder - now;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) return 'today'; // Overdue = today
+  if (diffDays === 0) return 'today';
+  if (diffDays <= 7) return 'week';
+  if (diffDays <= 30) return 'month';
+  return 'month'; // Beyond 30 days still in month category
+}
+
 // Get all inbox tasks
 router.get('/', async (req, res) => {
   try {
     const { userId, category } = req.query;
-    const query = { userId };
+    const query = { userId, isCompleted: false };
     
-    if (category) {
+    if (category && category !== 'unprocessed') {
       query.category = category;
+    } else if (category === 'unprocessed') {
+      query.reminderDate = { $exists: false };
     }
     
     const tasks = await InboxTask.find(query)
-      .sort({ createdAt: -1 });
+      .sort({ reminderDate: 1, createdAt: -1 });
     res.json(tasks);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -23,7 +41,16 @@ router.get('/', async (req, res) => {
 // Create inbox task
 router.post('/', async (req, res) => {
   try {
-    const task = new InboxTask(req.body);
+    const taskData = req.body;
+    
+    // Auto-calculate category based on reminderDate
+    if (taskData.reminderDate) {
+      taskData.category = calculateCategory(taskData.reminderDate);
+    } else {
+      taskData.category = 'unprocessed';
+    }
+    
+    const task = new InboxTask(taskData);
     const savedTask = await task.save();
     res.status(201).json(savedTask);
   } catch (error) {
@@ -34,9 +61,16 @@ router.post('/', async (req, res) => {
 // Update task
 router.put('/:id', async (req, res) => {
   try {
+    const taskData = req.body;
+    
+    // Auto-calculate category if reminderDate is provided
+    if (taskData.reminderDate) {
+      taskData.category = calculateCategory(taskData.reminderDate);
+    }
+    
     const task = await InboxTask.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      taskData,
       { new: true, runValidators: true }
     );
     if (!task) {
@@ -61,21 +95,53 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Process task (categorize)
-router.patch('/:id/process', async (req, res) => {
+// Mark task as completed
+router.patch('/:id/complete', async (req, res) => {
   try {
-    const { category } = req.body;
     const task = await InboxTask.findById(req.params.id);
     
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
     
-    task.category = category;
-    task.isProcessed = true;
-    task.processedAt = new Date();
+    task.isCompleted = !task.isCompleted;
+    task.completedAt = task.isCompleted ? new Date() : null;
+    task.category = task.isCompleted ? 'completed' : calculateCategory(task.reminderDate);
     await task.save();
     
+    res.json(task);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get tasks due for notification
+router.get('/due-notifications', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const now = new Date();
+    
+    const tasks = await InboxTask.find({
+      userId,
+      isCompleted: false,
+      notificationShown: false,
+      reminderDate: { $lte: now }
+    });
+    
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Mark notification as shown
+router.patch('/:id/notification-shown', async (req, res) => {
+  try {
+    const task = await InboxTask.findByIdAndUpdate(
+      req.params.id,
+      { notificationShown: true },
+      { new: true }
+    );
     res.json(task);
   } catch (error) {
     res.status(500).json({ message: error.message });

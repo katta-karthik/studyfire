@@ -10,13 +10,15 @@ const inboxTaskSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  estimatedTime: {
-    type: Number,
-    default: 30
+  reminderDate: {
+    type: Date
+  },
+  reminderTime: {
+    type: String
   },
   category: {
     type: String,
-    enum: ['today', 'week', 'month', 'someday', 'unprocessed'],
+    enum: ['today', 'week', 'month', 'unprocessed', 'completed'],
     default: 'unprocessed'
   },
   priority: {
@@ -24,14 +26,14 @@ const inboxTaskSchema = new mongoose.Schema({
     enum: ['low', 'medium', 'high'],
     default: 'medium'
   },
-  isProcessed: {
+  isCompleted: {
     type: Boolean,
     default: false
   },
-  processedAt: {
+  completedAt: {
     type: Date
   },
-  movedToSchedule: {
+  notificationShown: {
     type: Boolean,
     default: false
   },
