@@ -142,7 +142,7 @@ const TimeTracker = () => {
   // Start timer
   const handleStart = async () => {
     try {
-      const response = await fetch('${API_URL}/time-entries/start', {
+      const response = await fetch(`${API_URL}/time-entries/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
