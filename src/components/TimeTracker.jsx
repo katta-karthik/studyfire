@@ -4,6 +4,9 @@ import { Play, Square, Trash2, Clock, Flame, ChevronDown, ChevronUp, Gift } from
 import { getSafeDayUsedMessage } from '../services/geminiService';
 import confetti from 'canvas-confetti';
 
+// Use environment variable for API URL
+const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
+
 const TimeTracker = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -63,7 +66,7 @@ const TimeTracker = () => {
   useEffect(() => {
     const fetchChallenges = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/challenges?userId=${userId}`);
+        const response = await fetch(`${API_URL}/challenges?userId=${userId}`);
         const data = await response.json();
         setChallenges(data);
       } catch (error) {
@@ -79,7 +82,7 @@ const TimeTracker = () => {
   // Fetch time entries
   const fetchTimeEntries = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/time-entries?userId=${userId}`);
+      const response = await fetch(`${API_URL}/time-entries?userId=${userId}`);
       const data = await response.json();
       setTimeEntries(data);
     } catch (error) {
@@ -91,7 +94,7 @@ const TimeTracker = () => {
   useEffect(() => {
     const checkActiveTimer = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/time-entries/active?userId=${userId}`);
+        const response = await fetch(`${API_URL}/time-entries/active?userId=${userId}`);
         const data = await response.json();
         
         if (data && data.isRunning) {
@@ -139,7 +142,7 @@ const TimeTracker = () => {
   // Start timer
   const handleStart = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/time-entries/start', {
+      const response = await fetch('${API_URL}/time-entries/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -163,7 +166,7 @@ const TimeTracker = () => {
     if (!activeEntry) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/time-entries/stop/${activeEntry._id}`, {
+      const response = await fetch(`${API_URL}/time-entries/stop/${activeEntry._id}`, {
         method: 'POST'
       });
 
@@ -261,7 +264,7 @@ const TimeTracker = () => {
     if (isRunning && activeEntry) {
       const saveInterval = setInterval(async () => {
         try {
-          await fetch(`http://localhost:5000/api/time-entries/${activeEntry._id}`, {
+          await fetch(`${API_URL}/time-entries/${activeEntry._id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ description })
@@ -278,7 +281,7 @@ const TimeTracker = () => {
   // Delete time entry
   const handleDelete = async (entryId) => {
     try {
-      await fetch(`http://localhost:5000/api/time-entries/${entryId}`, {
+      await fetch(`${API_URL}/time-entries/${entryId}`, {
         method: 'DELETE'
       });
       fetchTimeEntries();
@@ -293,7 +296,7 @@ const TimeTracker = () => {
       // Delete all sessions in parallel
       await Promise.all(
         sessions.map(session => 
-          fetch(`http://localhost:5000/api/time-entries/${session._id}`, {
+          fetch(`${API_URL}/time-entries/${session._id}`, {
             method: 'DELETE'
           })
         )
@@ -906,3 +909,4 @@ const TimeTracker = () => {
 };
 
 export default TimeTracker;
+

@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Flame, Lock, User } from 'lucide-react';
 
+// Use environment variable for API URL
+const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
+
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +17,7 @@ export default function Login({ onLogin }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

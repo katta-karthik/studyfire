@@ -6,9 +6,11 @@ import { getWelcomeMessage, getStreakMotivation, getDailyMotivation } from '../s
 import api from '../services/api';
 import confetti from 'canvas-confetti';
 
+// Use environment variable for API URL
+const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
+
 // Better Animated Fire Component
 const AnimatedFire = ({ size = 'w-5 h-5' }) => {
-  // Generate unique IDs for gradients
   const uniqueId = Math.random().toString(36).substr(2, 9);
   const glowId = `fireGlow-${uniqueId}`;
   const outerId = `fireOuter-${uniqueId}`;
@@ -576,7 +578,7 @@ const Dashboard = ({ challenges, onReload }) => {
                   const sessionData = await stopTimer();
                   if (sessionData) {
                     try {
-                      await fetch(`http://localhost:5000/api/challenges/${challengeId}/stop-session`, {
+                      await fetch(`${API_URL}/challenges/${challengeId}/stop-session`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(sessionData)

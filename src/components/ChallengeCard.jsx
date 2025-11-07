@@ -3,6 +3,9 @@ import { Flame, Clock, Target, Lock, AlertTriangle, Trophy, Download, Trash2, Gi
 import { useTimer } from '../contexts/TimerContext';
 import { getNextBetProgress, getBetStatusEmoji } from '../utils/betMilestones';
 
+// Use environment variable for API URL
+const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
+
 const ChallengeCard = ({ challenge, onDelete }) => {
   const { todayProgress } = useTimer();
   
@@ -37,7 +40,7 @@ const ChallengeCard = ({ challenge, onDelete }) => {
       }
       
       // Single bet mode: download from backend
-      const response = await fetch(`http://localhost:5000/api/challenges/${challenge._id}/download-bet?userId=${userId}`);
+      const response = await fetch(`${API_URL}/challenges/${challenge._id}/download-bet?userId=${userId}`);
       
       if (!response.ok) {
         const error = await response.json();

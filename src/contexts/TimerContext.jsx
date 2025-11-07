@@ -1,4 +1,7 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useState, useContext, useEffect } from 'react';
+
+// Use environment variable for API URL
+const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
 
 const TimerContext = createContext();
 
@@ -86,7 +89,7 @@ export const TimerProvider = ({ children }) => {
   const refreshTodayProgress = async () => {
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch(`http://localhost:5000/api/challenges/today-progress?userId=${userId}`);
+      const response = await fetch(`${API_URL}/challenges/today-progress?userId=${userId}`);
       
       if (response.ok) {
         const progress = await response.json();

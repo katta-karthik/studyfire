@@ -5,6 +5,9 @@ import confetti from 'canvas-confetti';
 import { getSessionMessage } from '../utils/motivationalMessages';
 import { getTimerStartMessage, getTimerStopMessage } from '../services/geminiService';
 
+// Use environment variable for API URL
+const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
+
 const TimerView = ({ challenge, onUpdate, onBack }) => {
   const [isRunning, setIsRunning] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
@@ -328,7 +331,7 @@ const TimerView = ({ challenge, onUpdate, onBack }) => {
         
         // Use sendBeacon for reliable save during unload
         const userId = localStorage.getItem('userId');
-        const apiUrl = `http://localhost:5000/api/challenges/${challenge._id || challenge.id}`;
+        const apiUrl = `${API_URL}/challenges/${challenge._id || challenge.id}`;
         
         // Try sendBeacon first (most reliable)
         const data = JSON.stringify(updatedChallenge);
@@ -601,3 +604,4 @@ const TimerView = ({ challenge, onUpdate, onBack }) => {
 };
 
 export default TimerView;
+
