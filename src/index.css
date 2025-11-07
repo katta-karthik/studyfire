@@ -47,5 +47,38 @@
       transform: scale(1.02);
     }
   }
+
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(31, 41, 55, 0.5);
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(249, 115, 22, 0.5);
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(249, 115, 22, 0.8);
+  }
+
+  /* Prose (Markdown) Styles */
+  .prose-orange {
+    --tw-prose-body: #d1d5db;
+    --tw-prose-headings: #f9fafb;
+    --tw-prose-links: #fb923c;
+    --tw-prose-bold: #f9fafb;
+    --tw-prose-counters: #9ca3af;
+    --tw-prose-bullets: #fb923c;
+    --tw-prose-code: #fbbf24;
+    --tw-prose-pre-code: #f3f4f6;
+    --tw-prose-pre-bg: #1f2937;
+    --tw-prose-quotes: #e5e7eb;
+  }
 }
 

@@ -65,9 +65,20 @@ mongoose.connection.on('reconnected', () => {
 const challengeRoutes = require('./routes/challenges');
 const authRoutes = require('./routes/auth');
 const timeEntryRoutes = require('./routes/timeEntries');
+const pageRoutes = require('./routes/pages');
+const calendarRoutes = require('./routes/calendar');
+const plannerRoutes = require('./routes/planner');
+const inboxRoutes = require('./routes/inbox');
+const notificationRoutes = require('./routes/notifications');
+
 app.use('/api/challenges', challengeRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/time-entries', timeEntryRoutes);
+app.use('/api/pages', pageRoutes);
+app.use('/api/calendar', calendarRoutes);
+app.use('/api/planner', plannerRoutes);
+app.use('/api/inbox', inboxRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

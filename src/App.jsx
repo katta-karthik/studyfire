@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, ListChecks, LogOut, User, Clock } from 'lucide-react';
+import { LayoutDashboard, ListChecks, LogOut, User, Clock, Target } from 'lucide-react';
 import Login from './components/Login';
 import DashboardView from './components/DashboardView';
 import ChallengesView from './components/ChallengesView';
 import ChallengeCreation from './components/ChallengeCreation';
 import TimerView from './components/TimerView';
 import TimeTracker from './components/TimeTracker';
+import CommandCenter from './components/CommandCenter';
 import { useChallenges } from './hooks/useChallenges';
 import { useTimer } from './contexts/TimerContext';
 
@@ -129,6 +130,17 @@ function App() {
                       <ListChecks className="w-5 h-5" />
                       Challenges
                     </button>
+                    <button
+                      onClick={() => setCurrentView('command')}
+                      className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
+                        currentView === 'command'
+                          ? 'bg-fire-500 text-white'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <Target className="w-5 h-5" />
+                      Command Center
+                    </button>
                   </div>
 
                   {/* User Menu */}
@@ -219,6 +231,19 @@ function App() {
                       onComplete={handleCreateChallenge}
                       onCancel={() => setCurrentView('challenges')}
                     />
+                  </motion.div>
+                )}
+
+                {currentView === 'command' && (
+                  <motion.div
+                    key="command"
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={pageTransition}
+                  >
+                    <CommandCenter user={{ _id: currentUser.userId, name: currentUser.name }} />
                   </motion.div>
                 )}
               </AnimatePresence>
