@@ -211,8 +211,8 @@ export default function PageEditor({ page, onClose, user }) {
               </button>
 
               <button
-                onClick={() => {
-                  savePage();
+                onClick={async () => {
+                  await savePage();
                   onClose();
                 }}
                 className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all"

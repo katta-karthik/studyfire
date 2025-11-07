@@ -77,6 +77,21 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Delete event by linked page ID (when inbox task is deleted)
+router.delete('/by-page/:pageId', async (req, res) => {
+  try {
+    const event = await CalendarEvent.findOneAndDelete({
+      linkedPageId: req.params.pageId
+    });
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    res.json({ message: 'Event deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Toggle completion
 router.patch('/:id/complete', async (req, res) => {
   try {

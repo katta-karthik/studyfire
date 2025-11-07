@@ -109,8 +109,6 @@ export default function PlannerView({ user }) {
     } catch (error) {
       console.error('Error copying day plan:', error);
     }
-  };newDate.setDate(newDate.getDate() + days);
-    setSelectedDate(newDate);
   };
 
   const formatDate = (date) => {

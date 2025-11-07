@@ -128,7 +128,37 @@ export default function InboxView({ user }) {
 
   const deleteTask = async (taskId) => {
     try {
+      // First get the task details to know which planner/calendar entries to delete
+      const taskToDelete = tasks.find(t => t._id === taskId);
+      
+      // Delete from inbox
       await fetch(`${API_URL}/inbox/${taskId}`, { method: 'DELETE' });
+      
+      // If task had a linked planner entry, delete it
+      if (taskToDelete?.reminderDate && taskToDelete?.reminderTime) {
+        try {
+          const dateStr = new Date(taskToDelete.reminderDate).toISOString().split('T')[0];
+          await fetch(`${API_URL}/planner/delete-task`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user._id,
+              date: dateStr,
+              taskId: taskId
+            }),
+          });
+        } catch (err) {
+          console.log('Task not in planner or already deleted');
+        }
+      }
+      
+      // Delete from calendar if it exists
+      try {
+        await fetch(`${API_URL}/calendar/by-page/${taskId}`, { method: 'DELETE' });
+      } catch (err) {
+        console.log('Task not in calendar or already deleted');
+      }
+      
       setTasks(tasks.filter(t => t._id !== taskId));
     } catch (error) {
       console.error('Error deleting task:', error);

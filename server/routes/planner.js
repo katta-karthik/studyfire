@@ -69,6 +69,34 @@ router.patch('/toggle', async (req, res) => {
   }
 });
 
+// Delete task from planner (when inbox task is deleted)
+router.post('/delete-task', async (req, res) => {
+  try {
+    const { userId, date, taskId } = req.body;
+    const schedule = await DailySchedule.findOne({
+      userId,
+      date: new Date(date)
+    });
+    
+    if (!schedule) {
+      return res.status(404).json({ message: 'Schedule not found' });
+    }
+    
+    // Find and clear the task that has this linkedEventId
+    const timeBlock = schedule.schedule.find(block => block.linkedEventId === taskId);
+    if (timeBlock) {
+      timeBlock.task = '';
+      timeBlock.linkedEventId = null;
+      timeBlock.isCompleted = false;
+      await schedule.save();
+    }
+    
+    res.json(schedule);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Helper function to generate default 24-hour schedule
 function generateDefaultSchedule() {
   const schedule = [];

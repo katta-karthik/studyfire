@@ -127,13 +127,22 @@ function calculateCategory(reminderDate) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const taskDate = new Date(reminder.getFullYear(), reminder.getMonth(), reminder.getDate());
   
+  console.log('🔍 Category calculation:', {
+    inputDate: reminderDate,
+    today: today.toISOString().split('T')[0],
+    taskDate: taskDate.toISOString().split('T')[0],
+    isSameDay: taskDate.getTime() === today.getTime()
+  });
+  
   // Check if it's TODAY (most important check - do this FIRST)
   if (taskDate.getTime() === today.getTime()) {
+    console.log('✅ Categorized as: TODAY');
     return 'today';
   }
   
   // Check if it's in the PAST (overdue = today category)
   if (taskDate < today) {
+    console.log('✅ Categorized as: TODAY (overdue)');
     return 'today';
   }
   
@@ -145,17 +154,25 @@ function calculateCategory(reminderDate) {
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
   
+  console.log('📅 Week range:', {
+    start: startOfWeek.toISOString().split('T')[0],
+    end: endOfWeek.toISOString().split('T')[0]
+  });
+  
   // Task is in THIS WEEK if: between Sunday and Saturday AND after today
   if (taskDate > today && taskDate >= startOfWeek && taskDate <= endOfWeek) {
+    console.log('✅ Categorized as: WEEK');
     return 'week';
   }
   
   // Check if it's THIS MONTH (EXCLUDING today and this week)
   if (taskDate.getMonth() === today.getMonth() && taskDate.getFullYear() === today.getFullYear()) {
+    console.log('✅ Categorized as: MONTH');
     return 'month';
   }
   
   // Everything else is SOMEDAY (future months)
+  console.log('✅ Categorized as: SOMEDAY');
   return 'someday';
 }
 
