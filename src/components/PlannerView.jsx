@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Check, Copy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Copy, Calendar } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
 
@@ -8,6 +8,8 @@ export default function PlannerView({ user }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [schedule, setSchedule] = useState(null);
   const [editingTime, setEditingTime] = useState(null);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyFromDate, setCopyFromDate] = useState('');
 
   useEffect(() => {
     fetchSchedule();
@@ -65,11 +67,47 @@ export default function PlannerView({ user }) {
     } catch (error) {
       console.error('Error toggling completion:', error);
     }
-  };
-
   const changeDate = (days) => {
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + days);
+    setSelectedDate(newDate);
+  };
+
+  const copyDayPlan = async () => {
+    if (!copyFromDate) return;
+    
+    try {
+      // Fetch the schedule from the source date
+      const sourceResponse = await fetch(`${API_URL}/planner?userId=${user._id}&date=${copyFromDate}`);
+      const sourceSchedule = await sourceResponse.json();
+      
+      // Copy to current selected date
+      const targetDateStr = selectedDate.toISOString().split('T')[0];
+      const copiedSchedule = {
+        userId: user._id,
+        date: targetDateStr,
+        schedule: sourceSchedule.schedule.map(block => ({
+          ...block,
+          isCompleted: false, // Reset completion status
+          _id: undefined // Remove old IDs
+        })),
+        notes: sourceSchedule.notes
+      };
+      
+      const response = await fetch(`${API_URL}/planner`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(copiedSchedule),
+      });
+      
+      const data = await response.json();
+      setSchedule(data);
+      setShowCopyModal(false);
+      setCopyFromDate('');
+    } catch (error) {
+      console.error('Error copying day plan:', error);
+    }
+  };newDate.setDate(newDate.getDate() + days);
     setSelectedDate(newDate);
   };
 
@@ -108,12 +146,22 @@ export default function PlannerView({ user }) {
 
           <div className="text-center">
             <h2 className="text-2xl font-bold text-orange-500">{formatDate(selectedDate)}</h2>
-            <button
-              onClick={() => setSelectedDate(new Date())}
-              className="text-sm text-gray-400 hover:text-white transition-colors mt-1"
-            >
-              Today
-            </button>
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => setSelectedDate(new Date())}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Today
+              </button>
+              <span className="text-gray-600">•</span>
+              <button
+                onClick={() => setShowCopyModal(true)}
+                className="text-sm text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1"
+              >
+                <Copy className="w-3 h-3" />
+                Copy from another day
+              </button>
+            </div>
           </div>
 
           <button
@@ -231,6 +279,70 @@ export default function PlannerView({ user }) {
           <div className="text-sm text-gray-400">Remaining</div>
         </div>
       </motion.div>
+
+      {/* Copy Day Modal */}
+      {showCopyModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowCopyModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-gray-700"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <Copy className="w-5 h-5 text-orange-500" />
+                Copy Day Plan
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 mb-2 block">Select date to copy from:</label>
+                <input
+                  type="date"
+                  value={copyFromDate}
+                  onChange={(e) => setCopyFromDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+
+              <div className="bg-gray-700/50 rounded-xl p-4 text-sm text-gray-300">
+                <p className="mb-2">📋 This will copy all tasks from the selected day to:</p>
+                <p className="font-bold text-orange-400">{formatDate(selectedDate)}</p>
+                <p className="mt-2 text-xs text-gray-500">Note: Completion status will be reset</p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={copyDayPlan}
+                  disabled={!copyFromDate}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 rounded-xl font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Copy Schedule
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCopyModal(false);
+                    setCopyFromDate('');
+                  }}
+                  className="px-6 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }

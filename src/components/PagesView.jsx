@@ -101,7 +101,7 @@ export default function PagesView({ user }) {
             >
               {/* Cover Image */}
               <div
-                className="h-40 bg-gradient-to-br from-orange-500/20 to-red-600/20 flex items-center justify-center"
+                className="h-40 bg-gradient-to-br from-orange-500/20 to-red-600/20 flex items-center justify-center relative"
                 style={{
                   backgroundImage: page.coverImage ? `url(${page.coverImage})` : undefined,
                   backgroundSize: 'cover',
@@ -110,6 +110,28 @@ export default function PagesView({ user }) {
               >
                 {!page.coverImage && (
                   <span className="text-6xl">📄</span>
+                )}
+                
+                {/* Days Countdown Badge */}
+                {daysLeft !== null && (
+                  <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-700/50">
+                    <div className="text-center">
+                      <div
+                        className={`text-2xl font-bold ${
+                          daysLeft < 0
+                            ? 'text-red-400'
+                            : daysLeft < 7
+                            ? 'text-orange-400'
+                            : 'text-green-400'
+                        }`}
+                      >
+                        {daysLeft < 0 ? Math.abs(daysLeft) : daysLeft}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {daysLeft < 0 ? 'overdue' : 'days left'}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 

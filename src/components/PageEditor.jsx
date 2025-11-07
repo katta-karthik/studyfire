@@ -32,6 +32,7 @@ export default function PageEditor({ page, onClose, user }) {
   const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
+  const [saveError, setSaveError] = useState(false);
 
   // Auto-save every 3 seconds
   useEffect(() => {
@@ -44,7 +45,11 @@ export default function PageEditor({ page, onClose, user }) {
 
   const savePage = async () => {
     setSaving(true);
+    setSaveError(false);
     try {
+      console.log('💾 Saving page:', page._id);
+      console.log('📝 Data:', { title, content, coverImage, tags, deadline });
+      
       const response = await fetch(`${API_URL}/pages/${page._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -56,10 +61,20 @@ export default function PageEditor({ page, onClose, user }) {
           deadline: deadline || null,
         }),
       });
-      await response.json();
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Save failed:', response.status, errorData);
+        throw new Error('Save failed');
+      }
+      
+      const savedData = await response.json();
+      console.log('✅ Saved successfully:', savedData);
       setLastSaved(new Date());
+      setSaveError(false);
     } catch (error) {
-      console.error('Error saving page:', error);
+      console.error('💥 Error saving page:', error);
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -161,6 +176,11 @@ export default function PageEditor({ page, onClose, user }) {
                     <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
                     Saving...
                   </span>
+                ) : saveError ? (
+                  <span className="flex items-center gap-2 text-red-400">
+                    <div className="w-2 h-2 bg-red-500 rounded-full" />
+                    Save failed - Check backend
+                  </span>
                 ) : lastSaved ? (
                   <span className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full" />
@@ -180,6 +200,14 @@ export default function PageEditor({ page, onClose, user }) {
                 }`}
               >
                 {showPreview ? 'Edit' : 'Preview'}
+              </button>
+
+              <button
+                onClick={savePage}
+                disabled={saving}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save Now'}
               </button>
 
               <button

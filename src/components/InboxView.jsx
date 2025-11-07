@@ -90,11 +90,16 @@ export default function InboxView({ user }) {
       });
       const updatedTask = await response.json();
       
-      // Remove from current view if completed
-      if (updatedTask.isCompleted) {
-        setTasks(tasks.filter(t => t._id !== taskId));
-      } else {
+      // If we're in the completed filter, just update the task
+      if (filter === 'completed') {
         setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
+      } else {
+        // If completed, remove from current view (will show in Completed tab)
+        if (updatedTask.isCompleted) {
+          setTasks(tasks.filter(t => t._id !== taskId));
+        } else {
+          setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
+        }
       }
     } catch (error) {
       console.error('Error toggling completion:', error);

@@ -1,6 +1,95 @@
 const express = require('express');
 const router = express.Router();
 const InboxTask = require('../models/InboxTask');
+const DailySchedule = require('../models/DailySchedule');
+const CalendarEvent = require('../models/CalendarEvent');
+
+// Helper function to sync task to Planner
+async function syncToPlanner(taskData) {
+  try {
+    const { userId, reminderDate, reminderTime, task } = taskData;
+    if (!userId || !reminderDate || !reminderTime) return;
+    
+    // Find or create schedule for that day
+    const dateOnly = new Date(reminderDate);
+    dateOnly.setHours(0, 0, 0, 0);
+    
+    let schedule = await DailySchedule.findOne({
+      userId,
+      date: dateOnly
+    });
+    
+    if (!schedule) {
+      // Create default schedule
+      schedule = new DailySchedule({
+        userId,
+        date: dateOnly,
+        schedule: generateDefaultSchedule()
+      });
+    }
+    
+    // Find the time block and update it
+    const timeBlock = schedule.schedule.find(block => block.time === reminderTime);
+    if (timeBlock) {
+      timeBlock.task = task;
+      timeBlock.linkedEventId = taskData._id;
+      await schedule.save();
+    }
+  } catch (error) {
+    console.error('Error syncing to planner:', error);
+  }
+}
+
+// Helper function to sync task to Calendar
+async function syncToCalendar(taskData) {
+  try {
+    const { userId, reminderDate, reminderTime, task, _id } = taskData;
+    if (!userId || !reminderDate) return;
+    
+    // Check if calendar event already exists
+    const existingEvent = await CalendarEvent.findOne({
+      userId,
+      linkedPageId: _id
+    });
+    
+    if (existingEvent) {
+      // Update existing event
+      existingEvent.title = task;
+      existingEvent.date = reminderDate;
+      existingEvent.startTime = reminderTime || '';
+      await existingEvent.save();
+    } else {
+      // Create new calendar event
+      const calendarEvent = new CalendarEvent({
+        userId,
+        title: task,
+        date: reminderDate,
+        startTime: reminderTime || '',
+        type: 'reminder',
+        color: '#FF6B35',
+        linkedPageId: _id
+      });
+      await calendarEvent.save();
+    }
+  } catch (error) {
+    console.error('Error syncing to calendar:', error);
+  }
+}
+
+// Helper function to generate default 24-hour schedule
+function generateDefaultSchedule() {
+  const schedule = [];
+  for (let hour = 7; hour < 31; hour++) {
+    const displayHour = hour >= 24 ? hour - 24 : hour;
+    const time = `${displayHour.toString().padStart(2, '0')}:00`;
+    schedule.push({
+      time,
+      task: '',
+      isCompleted: false
+    });
+  }
+  return schedule;
+}
 
 // Helper function to calculate category based on CALENDAR date
 function calculateCategory(reminderDate) {
@@ -48,12 +137,20 @@ function calculateCategory(reminderDate) {
 router.get('/', async (req, res) => {
   try {
     const { userId, category } = req.query;
-    const query = { userId, isCompleted: false };
+    const query = { userId };
     
-    if (category && category !== 'unprocessed') {
-      query.category = category;
-    } else if (category === 'unprocessed') {
-      query.reminderDate = { $exists: false };
+    // Filter by completion status
+    if (category === 'completed') {
+      query.isCompleted = true;
+    } else {
+      query.isCompleted = false;
+      
+      // Then filter by category for non-completed tasks
+      if (category === 'unprocessed') {
+        query.reminderDate = { $exists: false };
+      } else if (category && category !== 'completed') {
+        query.category = category;
+      }
     }
     
     const tasks = await InboxTask.find(query)
@@ -78,6 +175,17 @@ router.post('/', async (req, res) => {
     
     const task = new InboxTask(taskData);
     const savedTask = await task.save();
+    
+    // Sync with Planner if time is provided
+    if (savedTask.reminderDate && savedTask.reminderTime) {
+      await syncToPlanner(savedTask.toObject());
+    }
+    
+    // Sync with Calendar if date is provided
+    if (savedTask.reminderDate) {
+      await syncToCalendar(savedTask.toObject());
+    }
+    
     res.status(201).json(savedTask);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -99,9 +207,21 @@ router.put('/:id', async (req, res) => {
       taskData,
       { new: true, runValidators: true }
     );
+    
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
+    
+    // Sync with Planner if time is provided
+    if (task.reminderDate && task.reminderTime) {
+      await syncToPlanner(task.toObject());
+    }
+    
+    // Sync with Calendar if date is provided
+    if (task.reminderDate) {
+      await syncToCalendar(task.toObject());
+    }
+    
     res.json(task);
   } catch (error) {
     res.status(400).json({ message: error.message });
