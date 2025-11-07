@@ -18,7 +18,7 @@ const inboxTaskSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['today', 'week', 'month', 'unprocessed', 'completed'],
+    enum: ['today', 'week', 'month', 'someday', 'unprocessed', 'completed'],
     default: 'unprocessed'
   },
   priority: {

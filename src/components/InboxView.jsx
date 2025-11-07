@@ -15,8 +15,21 @@ export default function InboxView({ user }) {
   const [editTime, setEditTime] = useState('');
 
   useEffect(() => {
+    recalculateCategories();
     fetchTasks();
   }, [filter]);
+
+  const recalculateCategories = async () => {
+    try {
+      await fetch(`${API_URL}/inbox/recalculate-categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user._id }),
+      });
+    } catch (error) {
+      console.error('Error recalculating categories:', error);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
@@ -122,6 +135,7 @@ export default function InboxView({ user }) {
     { id: 'today', label: 'Today', color: 'red', icon: '🔥' },
     { id: 'week', label: 'This Week', color: 'orange', icon: '📅' },
     { id: 'month', label: 'This Month', color: 'blue', icon: '📆' },
+    { id: 'someday', label: 'Someday', color: 'purple', icon: '💭' },
     { id: 'completed', label: 'Completed', color: 'green', icon: '✅' },
   ];
 
@@ -130,6 +144,22 @@ export default function InboxView({ user }) {
     const dateObj = new Date(date);
     const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     return time ? `${dateStr} at ${time}` : dateStr;
+  };
+
+  const getWeekInfo = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - dayOfWeek);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    
+    return `${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  };
+
+  const getMonthInfo = () => {
+    const now = new Date();
+    return now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
   return (
@@ -195,21 +225,35 @@ export default function InboxView({ user }) {
       </motion.div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setFilter(cat.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-all ${
-              filter === cat.id
-                ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white'
-                : 'bg-gray-800/50 text-gray-400 hover:text-white'
-            }`}
+      <div className="space-y-3">
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setFilter(cat.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-all ${
+                filter === cat.id
+                  ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white'
+                  : 'bg-gray-800/50 text-gray-400 hover:text-white'
+              }`}
+            >
+              <span>{cat.icon}</span>
+              {cat.label}
+            </button>
+          ))}
+        </div>
+        
+        {/* Show current week/month info */}
+        {(filter === 'week' || filter === 'month') && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gray-800/30 backdrop-blur-sm rounded-xl px-4 py-2 text-sm text-gray-400 border border-gray-700/30"
           >
-            <span>{cat.icon}</span>
-            {cat.label}
-          </button>
-        ))}
+            {filter === 'week' && `📅 Week of ${getWeekInfo()}`}
+            {filter === 'month' && `📆 ${getMonthInfo()}`}
+          </motion.div>
+        )}
       </div>
 
       {/* Tasks List */}

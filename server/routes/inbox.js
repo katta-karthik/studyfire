@@ -2,20 +2,46 @@ const express = require('express');
 const router = express.Router();
 const InboxTask = require('../models/InboxTask');
 
-// Helper function to calculate category based on date
+// Helper function to calculate category based on CALENDAR date
 function calculateCategory(reminderDate) {
   if (!reminderDate) return 'unprocessed';
   
   const now = new Date();
   const reminder = new Date(reminderDate);
-  const diffTime = reminder - now;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
-  if (diffDays < 0) return 'today'; // Overdue = today
-  if (diffDays === 0) return 'today';
-  if (diffDays <= 7) return 'week';
-  if (diffDays <= 30) return 'month';
-  return 'month'; // Beyond 30 days still in month category
+  // Normalize dates to compare only year/month/day (ignore time)
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const taskDate = new Date(reminder.getFullYear(), reminder.getMonth(), reminder.getDate());
+  
+  // Check if it's TODAY
+  if (taskDate.getTime() === today.getTime()) {
+    return 'today';
+  }
+  
+  // Check if it's THIS WEEK (Sunday to Saturday of current week)
+  const currentDayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - currentDayOfWeek); // Go back to Sunday
+  
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
+  
+  if (taskDate >= startOfWeek && taskDate <= endOfWeek && taskDate > today) {
+    return 'week';
+  }
+  
+  // Check if it's THIS MONTH
+  if (taskDate.getMonth() === today.getMonth() && taskDate.getFullYear() === today.getFullYear()) {
+    return 'month';
+  }
+  
+  // Check if it's in the PAST (overdue = today)
+  if (taskDate < today) {
+    return 'today';
+  }
+  
+  // Everything else is SOMEDAY (future months)
+  return 'someday';
 }
 
 // Get all inbox tasks
@@ -143,6 +169,36 @@ router.patch('/:id/notification-shown', async (req, res) => {
       { new: true }
     );
     res.json(task);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Recalculate categories for all tasks (called on dashboard load)
+router.post('/recalculate-categories', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    // Get all non-completed tasks with reminder dates
+    const tasks = await InboxTask.find({
+      userId,
+      isCompleted: false,
+      reminderDate: { $exists: true, $ne: null }
+    });
+    
+    // Update each task's category
+    const updates = tasks.map(async (task) => {
+      const newCategory = calculateCategory(task.reminderDate);
+      if (task.category !== newCategory) {
+        task.category = newCategory;
+        await task.save();
+      }
+      return task;
+    });
+    
+    await Promise.all(updates);
+    
+    res.json({ message: 'Categories updated', count: tasks.length });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
