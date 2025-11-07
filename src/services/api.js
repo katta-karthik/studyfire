@@ -1,8 +1,27 @@
 // Use environment variable for API URL (supports both dev and production)
 const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
 
-// Helper to get userId
-const getUserId = () => localStorage.getItem('userId');
+// Helper to get or create a guest userId
+const getUserId = () => {
+  let userId = localStorage.getItem('userId');
+  
+  // If no userId exists, create a guest user ID
+  if (!userId) {
+    // Use a consistent guest ID based on browser
+    userId = localStorage.getItem('guestUserId');
+    if (!userId) {
+      // Create a unique guest ID
+      userId = 'guest_' + Math.random().toString(36).substr(2, 9) + Date.now();
+      localStorage.setItem('guestUserId', userId);
+      localStorage.setItem('userId', userId);
+      console.log('🆕 Created guest user ID:', userId);
+    } else {
+      localStorage.setItem('userId', userId);
+    }
+  }
+  
+  return userId;
+};
 
 // API service for StudyFire backend
 const api = {
@@ -10,7 +29,6 @@ const api = {
   getChallenges: async () => {
     try {
       const userId = getUserId();
-      if (!userId) throw new Error('User not logged in');
       
       const response = await fetch(`${API_URL}/challenges?userId=${userId}`);
       if (!response.ok) throw new Error('Failed to fetch challenges');
@@ -37,7 +55,6 @@ const api = {
   createChallenge: async (challengeData) => {
     try {
       const userId = getUserId();
-      if (!userId) throw new Error('User not logged in');
       
       const response = await fetch(`${API_URL}/challenges`, {
         method: 'POST',
@@ -103,7 +120,6 @@ const api = {
   getStats: async () => {
     try {
       const userId = getUserId();
-      if (!userId) throw new Error('User not logged in');
       
       const response = await fetch(`${API_URL}/challenges/stats/summary?userId=${userId}`);
       if (!response.ok) throw new Error('Failed to fetch stats');
@@ -130,7 +146,6 @@ const api = {
   getUserDetails: async () => {
     try {
       const userId = getUserId();
-      if (!userId) throw new Error('User not logged in');
       
       const response = await fetch(`${API_URL}/auth/user/${userId}`);
       if (!response.ok) throw new Error('Failed to fetch user details');
