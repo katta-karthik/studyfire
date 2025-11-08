@@ -69,10 +69,43 @@ export default function CalendarView({ user }) {
 
   const toggleEventComplete = async (eventId) => {
     try {
+      // Get event details before toggling
+      const event = events.find(e => e._id === eventId);
+      
       const response = await fetch(`${API_URL}/calendar/${eventId}/complete`, {
         method: 'PATCH',
       });
       const updatedEvent = await response.json();
+      
+      // Sync completion to Inbox if linked
+      if (event?.linkedPageId) {
+        try {
+          await fetch(`${API_URL}/inbox/${event.linkedPageId}/complete`, {
+            method: 'PATCH',
+          });
+        } catch (err) {
+          console.log('Task not in inbox or error syncing');
+        }
+      }
+      
+      // Sync completion to Planner if has date and time
+      if (event?.date && event?.time) {
+        try {
+          const dateStr = new Date(event.date).toISOString().split('T')[0];
+          await fetch(`${API_URL}/planner/toggle`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user._id,
+              date: dateStr,
+              time: event.time,
+            }),
+          });
+        } catch (err) {
+          console.log('Task not in planner or error syncing');
+        }
+      }
+      
       setEvents(events.map(e => (e._id === eventId ? updatedEvent : e)));
     } catch (error) {
       console.error('Error toggling event:', error);
@@ -83,9 +116,43 @@ export default function CalendarView({ user }) {
     if (!confirm('Delete this event?')) return;
     
     try {
+      // Get event details before deleting
+      const eventToDelete = events.find(e => e._id === eventId);
+      
+      // Delete from calendar
       await fetch(`${API_URL}/calendar/${eventId}`, {
         method: 'DELETE',
       });
+      
+      // If event was linked to an inbox task, delete from inbox
+      if (eventToDelete?.linkedPageId) {
+        try {
+          await fetch(`${API_URL}/inbox/${eventToDelete.linkedPageId}`, {
+            method: 'DELETE',
+          });
+        } catch (err) {
+          console.log('Task not in inbox or already deleted');
+        }
+      }
+      
+      // If event was linked to a planner entry, clear it from planner
+      if (eventToDelete?.date && eventToDelete?.time) {
+        try {
+          const dateStr = new Date(eventToDelete.date).toISOString().split('T')[0];
+          await fetch(`${API_URL}/planner/delete-task`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user._id,
+              date: dateStr,
+              taskId: eventToDelete.linkedPageId || eventId,
+            }),
+          });
+        } catch (err) {
+          console.log('Task not in planner or already deleted');
+        }
+      }
+      
       setEvents(events.filter(e => e._id !== eventId));
     } catch (error) {
       console.error('Error deleting event:', error);

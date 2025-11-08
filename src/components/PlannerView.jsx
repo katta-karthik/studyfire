@@ -68,6 +68,10 @@ export default function PlannerView({ user }) {
   const toggleComplete = async (time) => {
     try {
       const dateStr = selectedDate.toISOString().split('T')[0];
+      
+      // Get the current time block to find linked task
+      const timeBlock = schedule?.schedule?.find(block => block.time === time);
+      
       const response = await fetch(`${API_URL}/planner/toggle`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -80,6 +84,35 @@ export default function PlannerView({ user }) {
 
       const data = await response.json();
       setSchedule(data);
+      
+      // Sync completion to Inbox if task is linked
+      if (timeBlock?.linkedEventId) {
+        try {
+          await fetch(`${API_URL}/inbox/${timeBlock.linkedEventId}/complete`, {
+            method: 'PATCH',
+          });
+        } catch (err) {
+          console.log('Task not in inbox or error syncing');
+        }
+      }
+      
+      // Sync completion to Calendar if task is linked
+      if (timeBlock?.linkedEventId) {
+        try {
+          // Find calendar event by linkedPageId
+          const eventsResponse = await fetch(`${API_URL}/calendar?userId=${user._id}&startDate=${dateStr}&endDate=${dateStr}`);
+          const events = await eventsResponse.json();
+          const calendarEvent = events.find(e => e.linkedPageId === timeBlock.linkedEventId);
+          
+          if (calendarEvent) {
+            await fetch(`${API_URL}/calendar/${calendarEvent._id}/complete`, {
+              method: 'PATCH',
+            });
+          }
+        } catch (err) {
+          console.log('Task not in calendar or error syncing');
+        }
+      }
     } catch (error) {
       console.error('Error toggling completion:', error);
     }

@@ -119,6 +119,43 @@ router.post('/delete-task', async (req, res) => {
   }
 });
 
+// Add task to planner (when inbox task is created or updated)
+router.post('/add-task', async (req, res) => {
+  try {
+    const { userId, date, time, task, linkedEventId } = req.body;
+    
+    let schedule = await DailySchedule.findOne({
+      userId,
+      date: new Date(date)
+    });
+    
+    // If schedule doesn't exist, create it
+    if (!schedule) {
+      const user = await User.findById(userId);
+      const startHour = user?.dayStartTime !== undefined ? user.dayStartTime : 7;
+      schedule = new DailySchedule({
+        userId,
+        date: new Date(date),
+        dayStartTime: parseInt(startHour),
+        schedule: generateDefaultSchedule(startHour)
+      });
+    }
+    
+    // Find the time block and add the task
+    const timeBlock = schedule.schedule.find(block => block.time === time);
+    if (timeBlock) {
+      timeBlock.task = task;
+      timeBlock.linkedEventId = linkedEventId;
+      timeBlock.isCompleted = false;
+      await schedule.save();
+    }
+    
+    res.json(schedule);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Update day start time for a specific schedule
 router.patch('/start-time', async (req, res) => {
   try {

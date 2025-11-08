@@ -172,6 +172,9 @@ export default function InboxView({ user }) {
 
   const updateTaskDateTime = async (taskId, date, time) => {
     try {
+      // Get old task data before update
+      const oldTask = tasks.find(t => t._id === taskId);
+      
       const response = await fetch(`${API_URL}/inbox/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -181,6 +184,79 @@ export default function InboxView({ user }) {
         }),
       });
       const updatedTask = await response.json();
+      
+      // Remove from old planner slot if it existed
+      if (oldTask?.reminderDate && oldTask?.reminderTime) {
+        try {
+          const oldDateStr = new Date(oldTask.reminderDate).toISOString().split('T')[0];
+          await fetch(`${API_URL}/planner/delete-task`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user._id,
+              date: oldDateStr,
+              taskId: taskId,
+            }),
+          });
+        } catch (err) {
+          console.log('Old planner entry not found');
+        }
+      }
+      
+      // Delete old calendar event if it existed
+      if (oldTask?.reminderDate) {
+        try {
+          await fetch(`${API_URL}/calendar/by-page/${taskId}`, { method: 'DELETE' });
+        } catch (err) {
+          console.log('Old calendar entry not found');
+        }
+      }
+      
+      // Add to new planner slot if date and time are set
+      if (date && time) {
+        try {
+          const newDateStr = new Date(date).toISOString().split('T')[0];
+          // Round time to nearest hour
+          const [hours, minutes] = time.split(':').map(Number);
+          const roundedHour = minutes >= 30 ? (hours + 1) % 24 : hours;
+          const roundedTime = `${roundedHour.toString().padStart(2, '0')}:00`;
+          
+          await fetch(`${API_URL}/planner/add-task`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user._id,
+              date: newDateStr,
+              time: roundedTime,
+              task: updatedTask.task,
+              linkedEventId: taskId,
+            }),
+          });
+        } catch (err) {
+          console.log('Error adding to planner');
+        }
+      }
+      
+      // Add new calendar event if date is set
+      if (date) {
+        try {
+          await fetch(`${API_URL}/calendar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user._id,
+              date: date,
+              time: time || '00:00',
+              title: updatedTask.task,
+              linkedPageId: taskId,
+              isCompleted: updatedTask.isCompleted,
+            }),
+          });
+        } catch (err) {
+          console.log('Error adding to calendar');
+        }
+      }
+      
       setEditingTask(null);
       setEditDate('');
       setEditTime('');
