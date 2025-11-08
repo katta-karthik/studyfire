@@ -12,6 +12,7 @@ export default function PlannerView({ user }) {
   const [copyFromDate, setCopyFromDate] = useState('');
   const [showStartTimeModal, setShowStartTimeModal] = useState(false);
   const [newStartTime, setNewStartTime] = useState(7);
+  const [isUpdatingStartTime, setIsUpdatingStartTime] = useState(false);
 
   useEffect(() => {
     initializeUser();
@@ -128,6 +129,7 @@ export default function PlannerView({ user }) {
 
   const updateStartTime = async () => {
     try {
+      setIsUpdatingStartTime(true);
       const dateStr = selectedDate.toISOString().split('T')[0];
       const response = await fetch(`${API_URL}/planner/start-time`, {
         method: 'PATCH',
@@ -139,11 +141,18 @@ export default function PlannerView({ user }) {
         }),
       });
       
+      if (!response.ok) {
+        throw new Error('Failed to update start time');
+      }
+      
       const data = await response.json();
       setSchedule(data);
       setShowStartTimeModal(false);
+      setIsUpdatingStartTime(false);
     } catch (error) {
       console.error('Error updating start time:', error);
+      setIsUpdatingStartTime(false);
+      alert('Failed to update start time. Please try again.');
     }
   };
 
@@ -440,13 +449,22 @@ export default function PlannerView({ user }) {
               <div className="flex gap-2">
                 <button
                   onClick={updateStartTime}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-xl font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all"
+                  disabled={isUpdatingStartTime}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-xl font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Update Start Time
+                  {isUpdatingStartTime ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Updating All Days...
+                    </>
+                  ) : (
+                    'Update Start Time'
+                  )}
                 </button>
                 <button
                   onClick={() => setShowStartTimeModal(false)}
-                  className="px-6 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-all"
+                  disabled={isUpdatingStartTime}
+                  className="px-6 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>

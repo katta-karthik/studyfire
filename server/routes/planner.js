@@ -173,6 +173,7 @@ router.patch('/start-time', async (req, res) => {
     
     // Update the current day
     updateScheduleStartTime(schedule);
+    schedule.$ignore('__v'); // Ignore version key to avoid conflicts
     await schedule.save();
     console.log(`✅ Updated schedule for ${date} with start time: ${startTime}`);
     
@@ -185,12 +186,22 @@ router.patch('/start-time', async (req, res) => {
     
     console.log(`📅 Found ${futureSchedules.length} future schedules to update`);
     
-    // Update each future schedule
-    for (const futureSchedule of futureSchedules) {
-      updateScheduleStartTime(futureSchedule);
-      await futureSchedule.save();
-      console.log(`  ✅ Updated ${futureSchedule.date.toISOString().split('T')[0]} to start at ${startTime}:00`);
-    }
+    // Update each future schedule with proper error handling
+    const updatePromises = futureSchedules.map(async (futureSchedule) => {
+      try {
+        updateScheduleStartTime(futureSchedule);
+        futureSchedule.$ignore('__v'); // Ignore version key to avoid conflicts
+        await futureSchedule.save();
+        console.log(`  ✅ Updated ${futureSchedule.date.toISOString().split('T')[0]} to start at ${startTime}:00`);
+      } catch (err) {
+        console.error(`  ⚠️ Error updating ${futureSchedule.date.toISOString().split('T')[0]}:`, err.message);
+        // Continue with other updates even if one fails
+      }
+    });
+    
+    // Wait for all updates to complete
+    await Promise.all(updatePromises);
+    console.log(`🎉 Completed updating all future schedules`);
     
     // Update user's default start time for any new schedules created later
     const userBefore = await User.findById(userId);
