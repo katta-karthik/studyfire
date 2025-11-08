@@ -85,10 +85,54 @@ export default function InboxView({ user }) {
 
   const toggleComplete = async (taskId) => {
     try {
+      // Get the task details first
+      const task = tasks.find(t => t._id === taskId);
+      
       const response = await fetch(`${API_URL}/inbox/${taskId}/complete`, {
         method: 'PATCH',
       });
       const updatedTask = await response.json();
+      
+      // Sync completion status to Planner if task has date+time
+      if (task?.reminderDate && task?.reminderTime) {
+        try {
+          const dateStr = new Date(task.reminderDate).toISOString().split('T')[0];
+          // Round time to nearest hour
+          const [hours, minutes] = task.reminderTime.split(':').map(Number);
+          const roundedHour = minutes >= 30 ? hours + 1 : hours;
+          const roundedTime = `${roundedHour.toString().padStart(2, '0')}:00`;
+          
+          await fetch(`${API_URL}/planner/toggle`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user._id,
+              date: dateStr,
+              time: roundedTime,
+            }),
+          });
+        } catch (err) {
+          console.log('Task not in planner or error syncing');
+        }
+      }
+      
+      // Sync completion status to Calendar
+      if (task?.reminderDate) {
+        try {
+          // Find calendar event by linkedPageId (which is the inbox task ID)
+          const eventsResponse = await fetch(`${API_URL}/calendar?userId=${user._id}&startDate=${task.reminderDate}&endDate=${task.reminderDate}`);
+          const events = await eventsResponse.json();
+          const calendarEvent = events.find(e => e.linkedPageId === taskId);
+          
+          if (calendarEvent) {
+            await fetch(`${API_URL}/calendar/${calendarEvent._id}/complete`, {
+              method: 'PATCH',
+            });
+          }
+        } catch (err) {
+          console.log('Task not in calendar or error syncing');
+        }
+      }
       
       // If we're in the completed filter, just update the task
       if (filter === 'completed') {
@@ -348,8 +392,8 @@ export default function InboxView({ user }) {
                     </div>
                   )}
 
-                  {/* Edit DateTime Button (only for unprocessed) */}
-                  {filter === 'unprocessed' && !task.isCompleted && (
+                  {/* Edit DateTime Button - Available for all tasks */}
+                  {!task.isCompleted && (
                     <button
                       onClick={() => {
                         setEditingTask(task._id);

@@ -15,6 +15,13 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'User'
   },
+  // Planner preferences
+  dayStartTime: {
+    type: Number,
+    default: 7, // Default start at 7:00 AM
+    min: 0,
+    max: 23
+  },
   // NEW: Streak Shield System
   streakShields: {
     type: Number,

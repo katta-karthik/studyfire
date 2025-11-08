@@ -3,6 +3,7 @@ const router = express.Router();
 const InboxTask = require('../models/InboxTask');
 const DailySchedule = require('../models/DailySchedule');
 const CalendarEvent = require('../models/CalendarEvent');
+const User = require('../models/User');
 
 // Helper function to round time to nearest hour (railway/24h format)
 function roundTimeToNearestHour(timeStr) {
@@ -45,7 +46,7 @@ async function syncToPlanner(taskData) {
       schedule = new DailySchedule({
         userId,
         date: dateOnly,
-        schedule: generateDefaultSchedule()
+        schedule: await generateDefaultSchedule(userId)
       });
       await schedule.save();
     }
@@ -102,11 +103,17 @@ async function syncToCalendar(taskData) {
 }
 
 // Helper function to generate default 24-hour schedule
-function generateDefaultSchedule() {
+async function generateDefaultSchedule(userId, startHour = 7) {
+  // Try to get user's preferred start time
+  if (userId) {
+    const user = await User.findById(userId);
+    startHour = user?.dayStartTime || 7;
+  }
+  
   const schedule = [];
-  for (let hour = 7; hour < 31; hour++) {
-    const displayHour = hour >= 24 ? hour - 24 : hour;
-    const time = `${displayHour.toString().padStart(2, '0')}:00`;
+  for (let i = 0; i < 24; i++) {
+    const hour = (startHour + i) % 24;
+    const time = `${hour.toString().padStart(2, '0')}:00`;
     schedule.push({
       time,
       task: '',

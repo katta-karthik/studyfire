@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Plus, X, Calendar as CalendarIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Calendar as CalendarIcon, Trash2, Edit2 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
 
@@ -76,6 +76,33 @@ export default function CalendarView({ user }) {
       setEvents(events.map(e => (e._id === eventId ? updatedEvent : e)));
     } catch (error) {
       console.error('Error toggling event:', error);
+    }
+  };
+
+  const deleteEvent = async (eventId) => {
+    if (!confirm('Delete this event?')) return;
+    
+    try {
+      await fetch(`${API_URL}/calendar/${eventId}`, {
+        method: 'DELETE',
+      });
+      setEvents(events.filter(e => e._id !== eventId));
+    } catch (error) {
+      console.error('Error deleting event:', error);
+    }
+  };
+
+  const updateEvent = async (eventId, updates) => {
+    try {
+      const response = await fetch(`${API_URL}/calendar/${eventId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      const updatedEvent = await response.json();
+      setEvents(events.map(e => (e._id === eventId ? updatedEvent : e)));
+    } catch (error) {
+      console.error('Error updating event:', error);
     }
   };
 
@@ -208,15 +235,28 @@ export default function CalendarView({ user }) {
             {dayEvents.map((event) => (
               <div
                 key={event._id}
-                onClick={() => toggleEventComplete(event._id)}
-                className={`text-xs p-1 rounded cursor-pointer transition-all ${
+                className={`text-xs p-1 rounded transition-all group relative ${
                   event.isCompleted
                     ? 'bg-green-900/30 text-green-400 line-through'
                     : 'bg-orange-900/30 text-orange-300 hover:bg-orange-900/50'
                 }`}
                 style={{ borderLeft: `3px solid ${event.color}` }}
               >
-                {event.title}
+                <div 
+                  onClick={() => toggleEventComplete(event._id)}
+                  className="cursor-pointer"
+                >
+                  {event.title}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteEvent(event._id);
+                  }}
+                  className="absolute top-0 right-0 p-1 bg-red-500/80 hover:bg-red-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 className="w-3 h-3 text-white" />
+                </button>
               </div>
             ))}
           </div>

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const DailySchedule = require('../models/DailySchedule');
+const User = require('../models/User');
 
 // Get schedule for specific date
 router.get('/', async (req, res) => {
@@ -13,7 +14,11 @@ router.get('/', async (req, res) => {
     
     // If no schedule exists, create default hourly schedule
     if (!schedule) {
-      const defaultSchedule = generateDefaultSchedule();
+      // Get user's preferred start time
+      const user = await User.findById(userId);
+      const startHour = user?.dayStartTime || 7;
+      
+      const defaultSchedule = generateDefaultSchedule(startHour);
       const newSchedule = new DailySchedule({
         userId,
         date: new Date(date),
@@ -98,11 +103,11 @@ router.post('/delete-task', async (req, res) => {
 });
 
 // Helper function to generate default 24-hour schedule
-function generateDefaultSchedule() {
+function generateDefaultSchedule(startHour = 7) {
   const schedule = [];
-  for (let hour = 7; hour < 31; hour++) {
-    const displayHour = hour >= 24 ? hour - 24 : hour;
-    const time = `${displayHour.toString().padStart(2, '0')}:00`;
+  for (let i = 0; i < 24; i++) {
+    const hour = (startHour + i) % 24;
+    const time = `${hour.toString().padStart(2, '0')}:00`;
     schedule.push({
       time,
       task: '',
