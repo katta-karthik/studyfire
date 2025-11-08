@@ -431,10 +431,10 @@ export default function PlannerView({ user }) {
               </div>
 
               <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4 text-sm text-gray-300">
-                <p className="mb-2">⏰ For {formatDate(selectedDate)}:</p>
+                <p className="mb-2">⏰ For {formatDate(selectedDate)} and all future days:</p>
                 <p className="text-blue-400">• Schedule will reorganize from {newStartTime}:00</p>
                 <p className="text-blue-400">• Existing tasks will be preserved</p>
-                <p className="mt-2 text-xs text-gray-500">Note: Past days remain unchanged. Future days will use this start time by default.</p>
+                <p className="mt-2 text-xs text-orange-400 font-semibold">✨ This will automatically update all days from today onwards!</p>
               </div>
 
               <div className="flex gap-2">

@@ -138,42 +138,61 @@ router.patch('/start-time', async (req, res) => {
     
     console.log(`📋 Current schedule start time: ${schedule.dayStartTime}`);
     
-    // Save current tasks
-    const taskMap = {};
-    schedule.schedule.forEach(block => {
-      if (block.task) {
-        taskMap[block.time] = {
-          task: block.task,
-          isCompleted: block.isCompleted,
-          linkedEventId: block.linkedEventId,
-          linkedChallengeId: block.linkedChallengeId
-        };
-      }
-    });
+    // Helper function to update a single schedule
+    const updateScheduleStartTime = (scheduleDoc) => {
+      // Save current tasks
+      const taskMap = {};
+      scheduleDoc.schedule.forEach(block => {
+        if (block.task) {
+          taskMap[block.time] = {
+            task: block.task,
+            isCompleted: block.isCompleted,
+            linkedEventId: block.linkedEventId,
+            linkedChallengeId: block.linkedChallengeId
+          };
+        }
+      });
+      
+      // Regenerate schedule with new start time
+      const newSchedule = generateDefaultSchedule(startTime);
+      
+      // Try to preserve tasks in their time slots
+      newSchedule.forEach(block => {
+        if (taskMap[block.time]) {
+          block.task = taskMap[block.time].task;
+          block.isCompleted = taskMap[block.time].isCompleted;
+          block.linkedEventId = taskMap[block.time].linkedEventId;
+          block.linkedChallengeId = taskMap[block.time].linkedChallengeId;
+        }
+      });
+      
+      scheduleDoc.dayStartTime = startTime;
+      scheduleDoc.schedule = newSchedule;
+      return scheduleDoc;
+    };
     
-    console.log(`💾 Preserved ${Object.keys(taskMap).length} tasks`);
-    
-    // Regenerate schedule with new start time
-    const newSchedule = generateDefaultSchedule(startTime);
-    
-    // Try to preserve tasks in their time slots
-    newSchedule.forEach(block => {
-      if (taskMap[block.time]) {
-        block.task = taskMap[block.time].task;
-        block.isCompleted = taskMap[block.time].isCompleted;
-        block.linkedEventId = taskMap[block.time].linkedEventId;
-        block.linkedChallengeId = taskMap[block.time].linkedChallengeId;
-      }
-    });
-    
-    schedule.dayStartTime = startTime;
-    schedule.schedule = newSchedule;
+    // Update the current day
+    updateScheduleStartTime(schedule);
     await schedule.save();
+    console.log(`✅ Updated schedule for ${date} with start time: ${startTime}`);
     
-    console.log(`✅ Schedule updated with start time: ${startTime}`);
+    // Find and update ALL future schedules (dates after this one)
+    const currentDate = new Date(date);
+    const futureSchedules = await DailySchedule.find({
+      userId,
+      date: { $gt: currentDate }
+    });
     
-    // Update user's default start time for future schedules
-    // First check if user exists and current value
+    console.log(`📅 Found ${futureSchedules.length} future schedules to update`);
+    
+    // Update each future schedule
+    for (const futureSchedule of futureSchedules) {
+      updateScheduleStartTime(futureSchedule);
+      await futureSchedule.save();
+      console.log(`  ✅ Updated ${futureSchedule.date.toISOString().split('T')[0]} to start at ${startTime}:00`);
+    }
+    
+    // Update user's default start time for any new schedules created later
     const userBefore = await User.findById(userId);
     console.log(`👤 User BEFORE update:`, JSON.stringify({
       _id: userBefore?._id,
@@ -182,27 +201,17 @@ router.patch('/start-time', async (req, res) => {
       type: typeof userBefore?.dayStartTime
     }));
     
-    // Force update with $set and ensure it's a number
     const updatedUser = await User.findByIdAndUpdate(
       userId, 
       { $set: { dayStartTime: parseInt(startTime) } },
       { new: true, runValidators: false }
     );
     
-    console.log(`✅ User AFTER update (from findByIdAndUpdate):`, JSON.stringify({
+    console.log(`✅ User AFTER update:`, JSON.stringify({
       _id: updatedUser?._id,
       username: updatedUser?.username,
       dayStartTime: updatedUser?.dayStartTime,
       type: typeof updatedUser?.dayStartTime
-    }));
-    
-    // Verify it was saved by doing a fresh query
-    const userAfter = await User.findById(userId).lean();
-    console.log(`🔍 User verified from DB (fresh query):`, JSON.stringify({
-      _id: userAfter?._id,
-      username: userAfter?.username,
-      dayStartTime: userAfter?.dayStartTime,
-      type: typeof userAfter?.dayStartTime
     }));
     
     res.json(schedule);
