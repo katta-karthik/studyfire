@@ -7,6 +7,9 @@ const User = require('../models/User');
 router.get('/', async (req, res) => {
   try {
     const { userId, date } = req.query;
+    
+    console.log(`📅 GET schedule request for date: ${date}, user: ${userId}`);
+    
     const schedule = await DailySchedule.findOne({
       userId,
       date: new Date(date)
@@ -16,25 +19,34 @@ router.get('/', async (req, res) => {
     if (!schedule) {
       // Get user's preferred start time
       const user = await User.findById(userId);
-      const startHour = user?.dayStartTime || 7;
+      const startHour = user?.dayStartTime !== undefined ? user.dayStartTime : 7;
       
       console.log(`🆕 Creating new schedule for ${date}`);
-      console.log(`👤 User default dayStartTime: ${user?.dayStartTime}`);
-      console.log(`⏰ Using start hour: ${startHour}`);
+      console.log(`👤 User document:`, JSON.stringify({ 
+        _id: user?._id, 
+        username: user?.username, 
+        dayStartTime: user?.dayStartTime 
+      }));
+      console.log(`⏰ Using start hour: ${startHour} (type: ${typeof startHour})`);
       
       const defaultSchedule = generateDefaultSchedule(startHour);
       const newSchedule = new DailySchedule({
         userId,
         date: new Date(date),
-        dayStartTime: startHour, // Save the start time used
+        dayStartTime: parseInt(startHour), // Ensure it's a number
         schedule: defaultSchedule
       });
       const savedSchedule = await newSchedule.save();
+      
+      console.log(`✅ Saved schedule with dayStartTime: ${savedSchedule.dayStartTime}`);
+      
       return res.json(savedSchedule);
     }
     
+    console.log(`📋 Found existing schedule for ${date}, dayStartTime: ${schedule.dayStartTime}`);
     res.json(schedule);
   } catch (error) {
+    console.error(`💥 Error in GET /planner:`, error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -163,19 +175,35 @@ router.patch('/start-time', async (req, res) => {
     // Update user's default start time for future schedules
     // First check if user exists and current value
     const userBefore = await User.findById(userId);
-    console.log(`👤 User BEFORE update - dayStartTime: ${userBefore?.dayStartTime}`);
+    console.log(`👤 User BEFORE update:`, JSON.stringify({
+      _id: userBefore?._id,
+      username: userBefore?.username,
+      dayStartTime: userBefore?.dayStartTime,
+      type: typeof userBefore?.dayStartTime
+    }));
     
+    // Force update with $set and ensure it's a number
     const updatedUser = await User.findByIdAndUpdate(
       userId, 
       { $set: { dayStartTime: parseInt(startTime) } },
       { new: true, runValidators: false }
     );
     
-    console.log(`✅ User AFTER update - dayStartTime: ${updatedUser?.dayStartTime}`);
+    console.log(`✅ User AFTER update (from findByIdAndUpdate):`, JSON.stringify({
+      _id: updatedUser?._id,
+      username: updatedUser?.username,
+      dayStartTime: updatedUser?.dayStartTime,
+      type: typeof updatedUser?.dayStartTime
+    }));
     
-    // Verify it was saved
-    const userAfter = await User.findById(userId);
-    console.log(`🔍 User verified from DB - dayStartTime: ${userAfter?.dayStartTime}`);
+    // Verify it was saved by doing a fresh query
+    const userAfter = await User.findById(userId).lean();
+    console.log(`🔍 User verified from DB (fresh query):`, JSON.stringify({
+      _id: userAfter?._id,
+      username: userAfter?.username,
+      dayStartTime: userAfter?.dayStartTime,
+      type: typeof userAfter?.dayStartTime
+    }));
     
     res.json(schedule);
   } catch (error) {
