@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Check, Copy, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Copy, Calendar, Clock } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
 
@@ -10,6 +10,8 @@ export default function PlannerView({ user }) {
   const [editingTime, setEditingTime] = useState(null);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyFromDate, setCopyFromDate] = useState('');
+  const [showStartTimeModal, setShowStartTimeModal] = useState(false);
+  const [newStartTime, setNewStartTime] = useState(7);
 
   useEffect(() => {
     fetchSchedule();
@@ -111,6 +113,27 @@ export default function PlannerView({ user }) {
     }
   };
 
+  const updateStartTime = async () => {
+    try {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const response = await fetch(`${API_URL}/planner/start-time`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user._id,
+          date: dateStr,
+          startTime: newStartTime,
+        }),
+      });
+      
+      const data = await response.json();
+      setSchedule(data);
+      setShowStartTimeModal(false);
+    } catch (error) {
+      console.error('Error updating start time:', error);
+    }
+  };
+
   const formatDate = (date) => {
     return date.toLocaleDateString('en-US', {
       weekday: 'long',
@@ -160,6 +183,17 @@ export default function PlannerView({ user }) {
               >
                 <Copy className="w-3 h-3" />
                 Copy from another day
+              </button>
+              <span className="text-gray-600">•</span>
+              <button
+                onClick={() => {
+                  setNewStartTime(schedule?.dayStartTime || 7);
+                  setShowStartTimeModal(true);
+                }}
+                className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+              >
+                <Clock className="w-3 h-3" />
+                Start time: {schedule?.dayStartTime || 7}:00
               </button>
             </div>
           </div>
@@ -334,6 +368,71 @@ export default function PlannerView({ user }) {
                     setShowCopyModal(false);
                     setCopyFromDate('');
                   }}
+                  className="px-6 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Start Time Modal */}
+      {showStartTimeModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowStartTimeModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-gray-700"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <Clock className="w-5 h-5 text-blue-500" />
+                Change Day Start Time
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 mb-2 block">What time does your day start?</label>
+                <select
+                  value={newStartTime}
+                  onChange={(e) => setNewStartTime(Number(e.target.value))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>
+                      {i.toString().padStart(2, '0')}:00 {i < 12 ? 'AM' : 'PM'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4 text-sm text-gray-300">
+                <p className="mb-2">⏰ For {formatDate(selectedDate)}:</p>
+                <p className="text-blue-400">• Schedule will reorganize from {newStartTime}:00</p>
+                <p className="text-blue-400">• Existing tasks will be preserved</p>
+                <p className="mt-2 text-xs text-gray-500">Note: Past days remain unchanged. Future days will use this start time by default.</p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={updateStartTime}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-xl font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all"
+                >
+                  Update Start Time
+                </button>
+                <button
+                  onClick={() => setShowStartTimeModal(false)}
                   className="px-6 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-all"
                 >
                   Cancel

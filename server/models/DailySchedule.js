@@ -33,6 +33,12 @@ const dailyScheduleSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  dayStartTime: {
+    type: Number,
+    default: 7, // Hour the day starts (0-23)
+    min: 0,
+    max: 23
+  },
   schedule: [timeBlockSchema],
   notes: {
     type: String,

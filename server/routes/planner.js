@@ -102,6 +102,59 @@ router.post('/delete-task', async (req, res) => {
   }
 });
 
+// Update day start time for a specific schedule
+router.patch('/start-time', async (req, res) => {
+  try {
+    const { userId, date, startTime } = req.body;
+    
+    const schedule = await DailySchedule.findOne({
+      userId,
+      date: new Date(date)
+    });
+    
+    if (!schedule) {
+      return res.status(404).json({ message: 'Schedule not found' });
+    }
+    
+    // Save current tasks
+    const taskMap = {};
+    schedule.schedule.forEach(block => {
+      if (block.task) {
+        taskMap[block.time] = {
+          task: block.task,
+          isCompleted: block.isCompleted,
+          linkedEventId: block.linkedEventId,
+          linkedChallengeId: block.linkedChallengeId
+        };
+      }
+    });
+    
+    // Regenerate schedule with new start time
+    const newSchedule = generateDefaultSchedule(startTime);
+    
+    // Try to preserve tasks in their time slots
+    newSchedule.forEach(block => {
+      if (taskMap[block.time]) {
+        block.task = taskMap[block.time].task;
+        block.isCompleted = taskMap[block.time].isCompleted;
+        block.linkedEventId = taskMap[block.time].linkedEventId;
+        block.linkedChallengeId = taskMap[block.time].linkedChallengeId;
+      }
+    });
+    
+    schedule.dayStartTime = startTime;
+    schedule.schedule = newSchedule;
+    await schedule.save();
+    
+    // Update user's default start time for future schedules
+    await User.findByIdAndUpdate(userId, { dayStartTime: startTime });
+    
+    res.json(schedule);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Helper function to generate default 24-hour schedule
 function generateDefaultSchedule(startHour = 7) {
   const schedule = [];

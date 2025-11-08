@@ -13,11 +13,30 @@ export default function InboxView({ user }) {
   const [editingTask, setEditingTask] = useState(null);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
+  const [taskCounts, setTaskCounts] = useState({});
 
   useEffect(() => {
     recalculateCategories();
     fetchTasks();
+    fetchTaskCounts();
   }, [filter]);
+
+  const fetchTaskCounts = async () => {
+    try {
+      const categories = ['unprocessed', 'today', 'week', 'month', 'someday'];
+      const counts = {};
+      
+      for (const cat of categories) {
+        const response = await fetch(`${API_URL}/inbox?userId=${user._id}&category=${cat}`);
+        const data = await response.json();
+        counts[cat] = Array.isArray(data) ? data.length : 0;
+      }
+      
+      setTaskCounts(counts);
+    } catch (error) {
+      console.error('Error fetching task counts:', error);
+    }
+  };
 
   const recalculateCategories = async () => {
     try {
@@ -78,6 +97,7 @@ export default function InboxView({ user }) {
       setReminderDate('');
       setReminderTime('');
       fetchTasks(); // Refresh to show in correct category
+      fetchTaskCounts(); // Update counts
     } catch (error) {
       console.error('Error adding task:', error);
     }
@@ -165,6 +185,7 @@ export default function InboxView({ user }) {
       setEditDate('');
       setEditTime('');
       fetchTasks(); // Refresh to show in correct category
+      fetchTaskCounts(); // Update counts
     } catch (error) {
       console.error('Error updating task:', error);
     }
@@ -204,6 +225,7 @@ export default function InboxView({ user }) {
       }
       
       setTasks(tasks.filter(t => t._id !== taskId));
+      fetchTaskCounts(); // Update counts
     } catch (error) {
       console.error('Error deleting task:', error);
     }
@@ -318,6 +340,16 @@ export default function InboxView({ user }) {
             >
               <span>{cat.icon}</span>
               {cat.label}
+              {/* Show count badge for all except completed */}
+              {cat.id !== 'completed' && taskCounts[cat.id] !== undefined && (
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  filter === cat.id 
+                    ? 'bg-white/20 text-white' 
+                    : 'bg-gray-700 text-gray-300'
+                }`}>
+                  {taskCounts[cat.id]}
+                </span>
+              )}
             </button>
           ))}
         </div>
