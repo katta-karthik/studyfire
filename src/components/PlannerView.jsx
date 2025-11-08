@@ -14,8 +14,21 @@ export default function PlannerView({ user }) {
   const [newStartTime, setNewStartTime] = useState(7);
 
   useEffect(() => {
+    initializeUser();
     fetchSchedule();
   }, [selectedDate]);
+
+  const initializeUser = async () => {
+    try {
+      await fetch(`${API_URL}/planner/init-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user._id }),
+      });
+    } catch (error) {
+      console.error('Error initializing user:', error);
+    }
+  };
 
   const fetchSchedule = async () => {
     try {

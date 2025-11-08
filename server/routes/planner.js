@@ -112,14 +112,19 @@ router.patch('/start-time', async (req, res) => {
   try {
     const { userId, date, startTime } = req.body;
     
+    console.log(`📥 Received request to update start time:`, { userId, date, startTime });
+    
     const schedule = await DailySchedule.findOne({
       userId,
       date: new Date(date)
     });
     
     if (!schedule) {
+      console.log(`❌ Schedule not found for date: ${date}`);
       return res.status(404).json({ message: 'Schedule not found' });
     }
+    
+    console.log(`📋 Current schedule start time: ${schedule.dayStartTime}`);
     
     // Save current tasks
     const taskMap = {};
@@ -133,6 +138,8 @@ router.patch('/start-time', async (req, res) => {
         };
       }
     });
+    
+    console.log(`💾 Preserved ${Object.keys(taskMap).length} tasks`);
     
     // Regenerate schedule with new start time
     const newSchedule = generateDefaultSchedule(startTime);
@@ -151,18 +158,28 @@ router.patch('/start-time', async (req, res) => {
     schedule.schedule = newSchedule;
     await schedule.save();
     
+    console.log(`✅ Schedule updated with start time: ${startTime}`);
+    
     // Update user's default start time for future schedules
+    // First check if user exists and current value
+    const userBefore = await User.findById(userId);
+    console.log(`👤 User BEFORE update - dayStartTime: ${userBefore?.dayStartTime}`);
+    
     const updatedUser = await User.findByIdAndUpdate(
       userId, 
-      { dayStartTime: startTime },
-      { new: true }
+      { $set: { dayStartTime: parseInt(startTime) } },
+      { new: true, runValidators: false }
     );
     
-    console.log(`✅ Updated user ${userId} default start time to ${startTime}:00`);
-    console.log(`📋 User dayStartTime is now: ${updatedUser?.dayStartTime}`);
+    console.log(`✅ User AFTER update - dayStartTime: ${updatedUser?.dayStartTime}`);
+    
+    // Verify it was saved
+    const userAfter = await User.findById(userId);
+    console.log(`🔍 User verified from DB - dayStartTime: ${userAfter?.dayStartTime}`);
     
     res.json(schedule);
   } catch (error) {
+    console.error(`💥 Error updating start time:`, error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -181,5 +198,28 @@ function generateDefaultSchedule(startHour = 7) {
   }
   return schedule;
 }
+
+// Initialize user's dayStartTime if not set (for existing users)
+router.post('/init-user', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // If dayStartTime is not set, initialize it to 7
+    if (user.dayStartTime === undefined || user.dayStartTime === null) {
+      user.dayStartTime = 7;
+      await user.save();
+      console.log(`🔧 Initialized user ${userId} dayStartTime to 7`);
+    }
+    
+    res.json({ dayStartTime: user.dayStartTime });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 module.exports = router;
