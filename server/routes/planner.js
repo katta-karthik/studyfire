@@ -18,10 +18,15 @@ router.get('/', async (req, res) => {
       const user = await User.findById(userId);
       const startHour = user?.dayStartTime || 7;
       
+      console.log(`🆕 Creating new schedule for ${date}`);
+      console.log(`👤 User default dayStartTime: ${user?.dayStartTime}`);
+      console.log(`⏰ Using start hour: ${startHour}`);
+      
       const defaultSchedule = generateDefaultSchedule(startHour);
       const newSchedule = new DailySchedule({
         userId,
         date: new Date(date),
+        dayStartTime: startHour, // Save the start time used
         schedule: defaultSchedule
       });
       const savedSchedule = await newSchedule.save();
@@ -147,7 +152,14 @@ router.patch('/start-time', async (req, res) => {
     await schedule.save();
     
     // Update user's default start time for future schedules
-    await User.findByIdAndUpdate(userId, { dayStartTime: startTime });
+    const updatedUser = await User.findByIdAndUpdate(
+      userId, 
+      { dayStartTime: startTime },
+      { new: true }
+    );
+    
+    console.log(`✅ Updated user ${userId} default start time to ${startTime}:00`);
+    console.log(`📋 User dayStartTime is now: ${updatedUser?.dayStartTime}`);
     
     res.json(schedule);
   } catch (error) {
