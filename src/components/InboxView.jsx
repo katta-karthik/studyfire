@@ -167,6 +167,8 @@ export default function InboxView({ user }) {
           setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
         }
       }
+      
+      fetchTaskCounts(); // Update counts after completion toggle
     } catch (error) {
       console.error('Error toggling completion:', error);
     }
