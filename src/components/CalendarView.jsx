@@ -11,6 +11,8 @@ export default function CalendarView({ user }) {
   const [events, setEvents] = useState([]);
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
@@ -161,6 +163,9 @@ export default function CalendarView({ user }) {
 
   const updateEvent = async (eventId, updates) => {
     try {
+      // Get event before update
+      const event = events.find(e => e._id === eventId);
+      
       const response = await fetch(`${API_URL}/calendar/${eventId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -168,9 +173,58 @@ export default function CalendarView({ user }) {
       });
       const updatedEvent = await response.json();
       setEvents(events.map(e => (e._id === eventId ? updatedEvent : e)));
+      
+      // Sync title update to Inbox if linked
+      if (event?.linkedPageId && updates.title) {
+        try {
+          await fetch(`${API_URL}/inbox/${event.linkedPageId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task: updates.title }),
+          });
+        } catch (err) {
+          console.log('Task not in inbox or error syncing');
+        }
+      }
+      
+      // Sync title update to Planner if has date and time
+      if (event?.date && event?.time && updates.title) {
+        try {
+          const dateStr = new Date(event.date).toISOString().split('T')[0];
+          await fetch(`${API_URL}/planner/update-task`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user._id,
+              date: dateStr,
+              time: event.time,
+              task: updates.title,
+            }),
+          });
+        } catch (err) {
+          console.log('Task not in planner or error syncing');
+        }
+      }
     } catch (error) {
       console.error('Error updating event:', error);
     }
+  };
+
+  const startEditingEvent = (event) => {
+    setEditingEvent(event._id);
+    setEditingTitle(event.title);
+  };
+
+  const saveEventEdit = async (eventId) => {
+    if (!editingTitle.trim()) return;
+    await updateEvent(eventId, { title: editingTitle });
+    setEditingEvent(null);
+    setEditingTitle('');
+  };
+
+  const cancelEventEdit = () => {
+    setEditingEvent(null);
+    setEditingTitle('');
   };
 
   const months = [
@@ -300,21 +354,62 @@ export default function CalendarView({ user }) {
                 }`}
                 style={{ borderLeft: `3px solid ${event.color}` }}
               >
-                <div 
-                  onClick={() => toggleEventComplete(event._id)}
-                  className="cursor-pointer"
-                >
-                  {event.title}
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteEvent(event._id);
-                  }}
-                  className="absolute top-0 right-0 p-1 bg-red-500/80 hover:bg-red-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 className="w-3 h-3 text-white" />
-                </button>
+                {editingEvent === event._id ? (
+                  <div onClick={(e) => e.stopPropagation()} className="flex gap-1">
+                    <input
+                      type="text"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') saveEventEdit(event._id);
+                        if (e.key === 'Escape') cancelEventEdit();
+                      }}
+                      className="flex-1 bg-gray-700 text-white text-xs px-1 py-0.5 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => saveEventEdit(event._id)}
+                      className="px-1 bg-green-500 hover:bg-green-600 rounded text-white text-xs"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={cancelEventEdit}
+                      className="px-1 bg-gray-500 hover:bg-gray-600 rounded text-white text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div 
+                      onClick={() => toggleEventComplete(event._id)}
+                      className="cursor-pointer"
+                    >
+                      {event.title}
+                    </div>
+                    <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditingEvent(event);
+                        }}
+                        className="p-1 bg-blue-500/80 hover:bg-blue-600 rounded"
+                      >
+                        <Edit2 className="w-3 h-3 text-white" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteEvent(event._id);
+                        }}
+                        className="p-1 bg-red-500/80 hover:bg-red-600 rounded"
+                      >
+                        <Trash2 className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>

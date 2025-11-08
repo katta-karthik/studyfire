@@ -156,6 +156,33 @@ router.post('/add-task', async (req, res) => {
   }
 });
 
+// Update task name in a specific time slot
+router.patch('/update-task', async (req, res) => {
+  try {
+    const { userId, date, time, task } = req.body;
+    
+    const schedule = await DailySchedule.findOne({
+      userId,
+      date: new Date(date)
+    });
+    
+    if (!schedule) {
+      return res.status(404).json({ message: 'Schedule not found' });
+    }
+    
+    // Find the time block and update the task name
+    const timeBlock = schedule.schedule.find(block => block.time === time);
+    if (timeBlock) {
+      timeBlock.task = task;
+      await schedule.save();
+    }
+    
+    res.json(schedule);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Update day start time for a specific schedule
 router.patch('/start-time', async (req, res) => {
   try {

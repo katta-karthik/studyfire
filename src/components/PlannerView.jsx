@@ -8,6 +8,7 @@ export default function PlannerView({ user }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [schedule, setSchedule] = useState(null);
   const [editingTime, setEditingTime] = useState(null);
+  const [editingTask, setEditingTask] = useState('');
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyFromDate, setCopyFromDate] = useState('');
   const [showStartTimeModal, setShowStartTimeModal] = useState(false);
@@ -44,6 +45,11 @@ export default function PlannerView({ user }) {
 
   const updateTask = async (time, task) => {
     try {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      
+      // Get the current time block to find linked task
+      const timeBlock = schedule?.schedule?.find(block => block.time === time);
+      
       const updatedSchedule = {
         ...schedule,
         schedule: schedule.schedule.map(block =>
@@ -60,6 +66,38 @@ export default function PlannerView({ user }) {
       const data = await response.json();
       setSchedule(data);
       setEditingTime(null);
+      
+      // Sync task name to Inbox if linked
+      if (timeBlock?.linkedEventId && task) {
+        try {
+          await fetch(`${API_URL}/inbox/${timeBlock.linkedEventId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task: task }),
+          });
+        } catch (err) {
+          console.log('Task not in inbox or error syncing');
+        }
+      }
+      
+      // Sync task name to Calendar if linked
+      if (timeBlock?.linkedEventId && task) {
+        try {
+          const eventsResponse = await fetch(`${API_URL}/calendar?userId=${user._id}&startDate=${dateStr}&endDate=${dateStr}`);
+          const events = await eventsResponse.json();
+          const calendarEvent = events.find(e => e.linkedPageId === timeBlock.linkedEventId);
+          
+          if (calendarEvent) {
+            await fetch(`${API_URL}/calendar/${calendarEvent._id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: task }),
+            });
+          }
+        } catch (err) {
+          console.log('Task not in calendar or error syncing');
+        }
+      }
     } catch (error) {
       console.error('Error updating task:', error);
     }

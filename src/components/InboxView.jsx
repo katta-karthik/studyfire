@@ -13,6 +13,8 @@ export default function InboxView({ user }) {
   const [editingTask, setEditingTask] = useState(null);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
+  const [editingTaskName, setEditingTaskName] = useState(null);
+  const [editTaskText, setEditTaskText] = useState('');
   const [taskCounts, setTaskCounts] = useState({});
 
   useEffect(() => {
@@ -267,6 +269,71 @@ export default function InboxView({ user }) {
     }
   };
 
+  const updateTaskName = async (taskId, newTaskName) => {
+    try {
+      if (!newTaskName.trim()) return;
+      
+      const task = tasks.find(t => t._id === taskId);
+      
+      // Update in Inbox
+      const response = await fetch(`${API_URL}/inbox/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task: newTaskName }),
+      });
+      const updatedTask = await response.json();
+      
+      // Sync to Planner if task has date and time
+      if (task?.reminderDate && task?.reminderTime) {
+        try {
+          const dateStr = new Date(task.reminderDate).toISOString().split('T')[0];
+          const [hours, minutes] = task.reminderTime.split(':').map(Number);
+          const roundedHour = minutes >= 30 ? (hours + 1) % 24 : hours;
+          const roundedTime = `${roundedHour.toString().padStart(2, '0')}:00`;
+          
+          await fetch(`${API_URL}/planner/update-task`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user._id,
+              date: dateStr,
+              time: roundedTime,
+              task: newTaskName,
+            }),
+          });
+        } catch (err) {
+          console.log('Task not in planner or error syncing');
+        }
+      }
+      
+      // Sync to Calendar if task has date
+      if (task?.reminderDate) {
+        try {
+          const dateStr = new Date(task.reminderDate).toISOString().split('T')[0];
+          const eventsResponse = await fetch(`${API_URL}/calendar?userId=${user._id}&startDate=${dateStr}&endDate=${dateStr}`);
+          const events = await eventsResponse.json();
+          const calendarEvent = events.find(e => e.linkedPageId === taskId);
+          
+          if (calendarEvent) {
+            await fetch(`${API_URL}/calendar/${calendarEvent._id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: newTaskName }),
+            });
+          }
+        } catch (err) {
+          console.log('Task not in calendar or error syncing');
+        }
+      }
+      
+      setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
+      setEditingTaskName(null);
+      setEditTaskText('');
+    } catch (error) {
+      console.error('Error updating task name:', error);
+    }
+  };
+
   const deleteTask = async (taskId) => {
     try {
       // First get the task details to know which planner/calendar entries to delete
@@ -488,9 +555,56 @@ export default function InboxView({ user }) {
                 )}
 
                 <div className="flex-1">
-                  <p className={`font-medium mb-2 ${task.isCompleted ? 'line-through text-gray-400' : 'text-white'}`}>
-                    {task.task}
-                  </p>
+                  {editingTaskName === task._id ? (
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={editTaskText}
+                        onChange={(e) => setEditTaskText(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') updateTaskName(task._id, editTaskText);
+                          if (e.key === 'Escape') {
+                            setEditingTaskName(null);
+                            setEditTaskText('');
+                          }
+                        }}
+                        className="flex-1 bg-gray-700 border border-orange-500 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => updateTaskName(task._id, editTaskText)}
+                        className="px-3 bg-green-500 hover:bg-green-600 rounded-lg text-white transition-colors"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingTaskName(null);
+                          setEditTaskText('');
+                        }}
+                        className="px-3 bg-gray-500 hover:bg-gray-600 rounded-lg text-white transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 group/title">
+                      <p className={`font-medium mb-2 flex-1 ${task.isCompleted ? 'line-through text-gray-400' : 'text-white'}`}>
+                        {task.task}
+                      </p>
+                      {!task.isCompleted && (
+                        <button
+                          onClick={() => {
+                            setEditingTaskName(task._id);
+                            setEditTaskText(task.task);
+                          }}
+                          className="opacity-0 group-hover/title:opacity-100 text-blue-400 hover:text-blue-300 transition-all"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                   
                   {/* Reminder Info */}
                   {task.reminderDate && (
