@@ -106,15 +106,6 @@ export default function CalendarView({ user }) {
     }
   };
 
-  const deleteEvent = async (eventId) => {
-    try {
-      await fetch(`${API_URL}/calendar/${eventId}`, { method: 'DELETE' });
-      setEvents(events.filter(e => e._id !== eventId));
-    } catch (error) {
-      console.error('Error deleting event:', error);
-    }
-  };
-
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
