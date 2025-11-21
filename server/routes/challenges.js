@@ -415,6 +415,23 @@ router.post('/:id/stop-session', async (req, res) => {
       
       challenge.lastCompletedDate = new Date();
       
+      // 🎮 MULTI-BET: Check for milestone unlocks
+      if (challenge.betMode === 'multi' && challenge.betItems && challenge.betItems.length > 0) {
+        let unlockedCount = 0;
+        challenge.betItems.forEach(bet => {
+          if (!bet.isUnlocked && challenge.currentStreak >= bet.unlockDay) {
+            bet.isUnlocked = true;
+            bet.unlockedAt = new Date();
+            unlockedCount++;
+            console.log(`🎁 UNLOCKED Bet ${bet.milestone} (${bet.name}) at day ${challenge.currentStreak}!`);
+          }
+        });
+        
+        if (unlockedCount > 0) {
+          console.log(`🎉 ${unlockedCount} new bet(s) unlocked!`);
+        }
+      }
+      
       // Check if challenge is complete
       if (challenge.currentStreak >= challenge.duration) {
         challenge.isCompleted = true;
@@ -422,6 +439,18 @@ router.post('/:id/stop-session', async (req, res) => {
         challenge.completedAt = new Date();
         challenge.isBetReturned = true;
         challenge.isBetLocked = false;
+        
+        // 🎮 MULTI-BET: Unlock ALL remaining bets on completion
+        if (challenge.betMode === 'multi' && challenge.betItems && challenge.betItems.length > 0) {
+          const remainingLocked = challenge.betItems.filter(bet => !bet.isUnlocked);
+          if (remainingLocked.length > 0) {
+            remainingLocked.forEach(bet => {
+              bet.isUnlocked = true;
+              bet.unlockedAt = new Date();
+            });
+            console.log(`🎊 Challenge COMPLETED! Unlocked ${remainingLocked.length} remaining bet(s)!`);
+          }
+        }
       }
     }
     
@@ -451,21 +480,38 @@ router.delete('/:id/delete-bet', async (req, res) => {
       return res.status(404).json({ message: 'Challenge not found' });
     }
     
-    // Delete bet file from database
-    challenge.betItem = {
-      name: '[DELETED - Challenge Failed]',
-      size: 0,
-      type: '',
-      uploadedAt: null,
-      fileData: ''
-    };
+    // Handle single-bet mode
+    if (challenge.betMode === 'single' && challenge.betItem) {
+      challenge.betItem = {
+        name: '[DELETED - Challenge Failed]',
+        size: 0,
+        type: '',
+        uploadedAt: null,
+        fileData: ''
+      };
+    }
+    
+    // Handle multi-bet mode - DELETE ALL BETS (locked and unlocked)
+    if (challenge.betMode === 'multi' && challenge.betItems && challenge.betItems.length > 0) {
+      challenge.betItems = challenge.betItems.map(bet => ({
+        ...bet,
+        name: `[DELETED - Challenge Failed]`,
+        fileData: '',
+        isUnlocked: false,
+        unlockedAt: null
+      }));
+      console.log(`💀 DELETED ALL ${challenge.betItems.length} bets for failed multi-bet challenge`);
+    }
+    
     challenge.isBetLocked = true;
     challenge.hasFailed = true;
     
     await challenge.save();
     
     res.json({ 
-      message: '🔥 Bet file PERMANENTLY DELETED. No mercy for quitters.',
+      message: challenge.betMode === 'multi' 
+        ? `💀 ALL ${challenge.betItems.length} BETS PERMANENTLY DELETED. Challenge failed!` 
+        : '🔥 Bet file PERMANENTLY DELETED. No mercy for quitters.',
       challenge 
     });
   } catch (error) {

@@ -55,8 +55,9 @@ function App() {
     setCurrentView('dashboard');
   };
 
-  const handleCreateChallenge = (challenge) => {
-    addChallenge(challenge);
+  const handleCreateChallenge = async (challenge) => {
+    await addChallenge(challenge);
+    await reloadChallenges(true); // Force refresh to show new challenge
     setCurrentView('challenges'); // Go to challenges page after creating
   };
 

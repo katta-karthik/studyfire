@@ -73,10 +73,13 @@ export const useChallenges = (isLoggedIn) => {
       console.log('📝 Creating challenge in backend...');
       const savedChallenge = await api.createChallenge(newChallenge);
       console.log('✅ Challenge created:', savedChallenge);
-      setChallenges(prev => [savedChallenge, ...prev]);
       
-      // Invalidate cache
+      // Invalidate cache FIRST
       cache.timestamp = 0;
+      cache.data = null;
+      
+      // Update state with new challenge
+      setChallenges(prev => [savedChallenge, ...prev]);
       
       return savedChallenge;
     } catch (err) {
@@ -93,6 +96,10 @@ export const useChallenges = (isLoggedIn) => {
       const updatedChallenge = await api.updateChallenge(challengeId, updates);
       
       console.log('✅ Challenge updated successfully:', updatedChallenge);
+      
+      // Invalidate cache
+      cache.timestamp = 0;
+      cache.data = null;
       
       setChallenges(prev =>
         prev.map(challenge =>
@@ -113,6 +120,11 @@ export const useChallenges = (isLoggedIn) => {
       await api.deleteChallenge(challengeId);
       
       console.log('✅ Challenge deleted successfully');
+      
+      // Invalidate cache
+      cache.timestamp = 0;
+      cache.data = null;
+      
       setChallenges(prev => prev.filter(c => c._id !== challengeId && c.id !== challengeId));
       
       return { success: true };
@@ -193,6 +205,10 @@ export const useChallenges = (isLoggedIn) => {
     }
 
     await updateChallenge(challengeId, updates);
+    
+    // Force cache invalidation after progress update
+    cache.timestamp = 0;
+    cache.data = null;
   };
 
   return {
