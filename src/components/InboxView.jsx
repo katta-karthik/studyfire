@@ -331,6 +331,8 @@ export default function InboxView({ user }) {
       setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
       setEditingTaskName(null);
       setEditTaskText('');
+      // Refetch counts to ensure they're current
+      await fetchTaskCounts();
     } catch (error) {
       console.error('Error updating task name:', error);
     }

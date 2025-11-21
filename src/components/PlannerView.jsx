@@ -193,6 +193,8 @@ export default function PlannerView({ user }) {
       setSchedule(data);
       setShowCopyModal(false);
       setCopyFromDate('');
+      // Refetch to ensure cache is fresh
+      await fetchSchedule();
     } catch (error) {
       console.error('Error copying day plan:', error);
     }
@@ -220,6 +222,8 @@ export default function PlannerView({ user }) {
       setSchedule(data);
       setShowStartTimeModal(false);
       setIsUpdatingStartTime(false);
+      // Refetch to ensure cache is fresh
+      await fetchSchedule();
     } catch (error) {
       console.error('Error updating start time:', error);
       setIsUpdatingStartTime(false);

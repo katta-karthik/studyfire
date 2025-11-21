@@ -65,6 +65,8 @@ export default function CalendarView({ user }) {
         type: 'event',
         color: '#FF6B35',
       });
+      // Refetch to ensure cache is fresh
+      await fetchEvents();
     } catch (error) {
       console.error('Error creating event:', error);
     }
