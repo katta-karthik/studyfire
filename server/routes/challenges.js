@@ -125,6 +125,8 @@ router.get('/:id', async (req, res) => {
 // CREATE new challenge
 router.post('/', async (req, res) => {
   try {
+    console.log('📥 Received challenge creation request:', JSON.stringify(req.body, null, 2));
+    
     // Convert userId string to ObjectId if needed
     const challengeData = { ...req.body };
     if (challengeData.userId && typeof challengeData.userId === 'string') {
@@ -136,13 +138,23 @@ router.post('/', async (req, res) => {
       challengeData.safeDaysRemaining = challengeData.safeDaysTotal;
     }
     
+    // Handle multi-bet mode: if betItems array exists, use it
+    if (challengeData.betMode === 'multi' && challengeData.betItems && Array.isArray(challengeData.betItems)) {
+      console.log(`✅ Multi-bet challenge with ${challengeData.betItems.length} bets`);
+      // Keep betItems array as is
+    } else if (challengeData.betItem) {
+      // Single bet mode - keep betItem as is
+      console.log(`✅ Single-bet challenge`);
+    }
+    
     const challenge = new Challenge(challengeData);
     const savedChallenge = await challenge.save();
-    console.log(`✅ Created challenge "${savedChallenge.title}" with ${savedChallenge.safeDaysTotal} safe days`);
+    console.log(`✅ Created challenge "${savedChallenge.title}" with ${savedChallenge.betMode} mode`);
     res.status(201).json(savedChallenge);
   } catch (error) {
     console.error('❌ Error creating challenge:', error.message);
-    res.status(400).json({ message: 'Error creating challenge', error: error.message });
+    console.error('❌ Error stack:', error.stack);
+    res.status(400).json({ message: 'Error creating challenge', error: error.message, details: error.stack });
   }
 });
 
