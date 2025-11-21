@@ -351,11 +351,6 @@ export default function PlannerView({ user }) {
                   defaultValue={block.task}
                   autoFocus
                   onBlur={(e) => updateTask(block.time, e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      updateTask(block.time, e.target.value);
-                    }
-                  }}
                   className="flex-1 bg-gray-600 border border-orange-500 rounded-lg px-3 py-2 text-white focus:outline-none"
                   placeholder="What are you working on?"
                 />

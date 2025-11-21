@@ -13,6 +13,7 @@ export default function CalendarView({ user }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [saveTimeout, setSaveTimeout] = useState(null);
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
@@ -215,14 +216,30 @@ export default function CalendarView({ user }) {
     setEditingTitle(event.title);
   };
 
-  const saveEventEdit = async (eventId) => {
-    if (!editingTitle.trim()) return;
-    await updateEvent(eventId, { title: editingTitle });
-    setEditingEvent(null);
-    setEditingTitle('');
+  const handleTitleChange = (eventId, newTitle) => {
+    setEditingTitle(newTitle);
+    
+    // Clear existing timeout
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+    
+    // Set new timeout to auto-save after 500ms of no typing
+    const timeout = setTimeout(async () => {
+      if (newTitle.trim()) {
+        await updateEvent(eventId, { title: newTitle });
+      }
+    }, 500);
+    
+    setSaveTimeout(timeout);
   };
 
-  const cancelEventEdit = () => {
+  const finishEditingEvent = () => {
+    // Clear timeout and reset editing state
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+      setSaveTimeout(null);
+    }
     setEditingEvent(null);
     setEditingTitle('');
   };
@@ -355,30 +372,16 @@ export default function CalendarView({ user }) {
                 style={{ borderLeft: `3px solid ${event.color}` }}
               >
                 {editingEvent === event._id ? (
-                  <div onClick={(e) => e.stopPropagation()} className="flex gap-1">
+                  <div onClick={(e) => e.stopPropagation()}>
                     <input
                       type="text"
                       value={editingTitle}
-                      onChange={(e) => setEditingTitle(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') saveEventEdit(event._id);
-                        if (e.key === 'Escape') cancelEventEdit();
-                      }}
-                      className="flex-1 bg-gray-700 text-white text-xs px-1 py-0.5 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      onChange={(e) => handleTitleChange(event._id, e.target.value)}
+                      onBlur={finishEditingEvent}
+                      className="w-full bg-gray-700 text-white text-xs px-1 py-0.5 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
                       autoFocus
+                      placeholder="Event title..."
                     />
-                    <button
-                      onClick={() => saveEventEdit(event._id)}
-                      className="px-1 bg-green-500 hover:bg-green-600 rounded text-white text-xs"
-                    >
-                      ✓
-                    </button>
-                    <button
-                      onClick={cancelEventEdit}
-                      className="px-1 bg-gray-500 hover:bg-gray-600 rounded text-white text-xs"
-                    >
-                      ✕
-                    </button>
                   </div>
                 ) : (
                   <>

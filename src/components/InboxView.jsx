@@ -563,15 +563,10 @@ export default function InboxView({ user }) {
                         type="text"
                         value={editTaskText}
                         onChange={(e) => setEditTaskText(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') updateTaskName(task._id, editTaskText);
-                          if (e.key === 'Escape') {
-                            setEditingTaskName(null);
-                            setEditTaskText('');
-                          }
-                        }}
+                        onBlur={() => updateTaskName(task._id, editTaskText)}
                         className="flex-1 bg-gray-700 border border-orange-500 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                         autoFocus
+                        placeholder="Task name..."
                       />
                       <button
                         onClick={() => updateTaskName(task._id, editTaskText)}

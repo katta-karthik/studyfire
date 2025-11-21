@@ -138,12 +138,45 @@ router.post('/', async (req, res) => {
       challengeData.safeDaysRemaining = challengeData.safeDaysTotal;
     }
     
-    // Handle multi-bet mode: if betItems array exists, use it
-    if (challengeData.betMode === 'multi' && challengeData.betItems && Array.isArray(challengeData.betItems)) {
-      console.log(`✅ Multi-bet challenge with ${challengeData.betItems.length} bets`);
-      // Keep betItems array as is
+    // Handle multi-bet mode: parse betItems if it's a stringified array
+    if (challengeData.betMode === 'multi' && challengeData.betItems) {
+      // If betItems is a string, parse it to array
+      if (typeof challengeData.betItems === 'string') {
+        try {
+          console.log('⚠️ betItems received as string, parsing...');
+          challengeData.betItems = JSON.parse(challengeData.betItems);
+        } catch (parseError) {
+          console.error('❌ Failed to parse betItems:', parseError);
+          return res.status(400).json({ 
+            message: 'Invalid betItems format', 
+            error: 'betItems must be a valid JSON array' 
+          });
+        }
+      }
+      
+      if (Array.isArray(challengeData.betItems)) {
+        console.log(`✅ Multi-bet challenge with ${challengeData.betItems.length} bets`);
+      } else {
+        console.error('❌ betItems is not an array:', typeof challengeData.betItems);
+        return res.status(400).json({ 
+          message: 'Invalid betItems format', 
+          error: 'betItems must be an array' 
+        });
+      }
     } else if (challengeData.betItem) {
-      // Single bet mode - keep betItem as is
+      // Single bet mode - parse betItem if it's a string
+      if (typeof challengeData.betItem === 'string') {
+        try {
+          console.log('⚠️ betItem received as string, parsing...');
+          challengeData.betItem = JSON.parse(challengeData.betItem);
+        } catch (parseError) {
+          console.error('❌ Failed to parse betItem:', parseError);
+          return res.status(400).json({ 
+            message: 'Invalid betItem format', 
+            error: 'betItem must be a valid JSON object' 
+          });
+        }
+      }
       console.log(`✅ Single-bet challenge`);
     }
     
