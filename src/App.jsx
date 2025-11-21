@@ -16,7 +16,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedChallenge, setSelectedChallenge] = useState(null);
-  const { challenges, addChallenge, updateChallenge, deleteChallenge, reloadChallenges } = useChallenges(isLoggedIn);
+  const { challenges, loading, addChallenge, updateChallenge, deleteChallenge, reloadChallenges } = useChallenges(isLoggedIn);
   const { activeTimer, formattedTime } = useTimer();
 
   // Reload challenges when switching to dashboard
@@ -197,7 +197,16 @@ function App() {
                     exit="exit"
                     transition={pageTransition}
                   >
-                    <DashboardView challenges={challenges} onReload={reloadChallenges} />
+                    {loading ? (
+                      <div className="flex items-center justify-center min-h-[400px]">
+                        <div className="text-center space-y-4">
+                          <div className="w-16 h-16 border-4 border-fire-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                          <p className="text-gray-400">Loading challenges...</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <DashboardView challenges={challenges} onReload={reloadChallenges} />
+                    )}
                   </motion.div>
                 )}
 
@@ -210,11 +219,20 @@ function App() {
                     exit="exit"
                     transition={pageTransition}
                   >
-                    <ChallengesView
-                      challenges={challenges}
-                      onCreateNew={() => setCurrentView('create')}
-                      onDelete={deleteChallenge}
-                    />
+                    {loading ? (
+                      <div className="flex items-center justify-center min-h-[400px]">
+                        <div className="text-center space-y-4">
+                          <div className="w-16 h-16 border-4 border-fire-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                          <p className="text-gray-400">Loading challenges...</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <ChallengesView
+                        challenges={challenges}
+                        onCreateNew={() => setCurrentView('create')}
+                        onDelete={deleteChallenge}
+                      />
+                    )}
                   </motion.div>
                 )}
 

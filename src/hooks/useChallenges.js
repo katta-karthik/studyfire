@@ -1,6 +1,13 @@
  import { useState, useEffect } from 'react';
 import api from '../services/api';
 
+// Simple cache to avoid redundant API calls
+const cache = {
+  data: null,
+  timestamp: 0,
+  duration: 20000 // 20 seconds
+};
+
 export const useChallenges = (isLoggedIn) => {
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,14 +23,27 @@ export const useChallenges = (isLoggedIn) => {
     }
   }, [isLoggedIn]);
 
-  const loadChallenges = async () => {
+  const loadChallenges = async (forceRefresh = false) => {
     try {
+      // Check cache first (unless forced refresh)
+      const now = Date.now();
+      if (!forceRefresh && cache.data && (now - cache.timestamp) < cache.duration) {
+        console.log('📦 Using cached challenges');
+        setChallenges(cache.data);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       console.log('🔄 Loading challenges from backend...');
       
       const data = await api.getChallenges();
       console.log('✅ Challenges loaded:', data.length, 'challenges');
-      console.log('📦 Challenge data:', data);
+      
+      // Update cache
+      cache.data = data;
+      cache.timestamp = now;
+      
       setChallenges(data);
       setError(null);
     } catch (err) {
@@ -54,6 +74,9 @@ export const useChallenges = (isLoggedIn) => {
       const savedChallenge = await api.createChallenge(newChallenge);
       console.log('✅ Challenge created:', savedChallenge);
       setChallenges(prev => [savedChallenge, ...prev]);
+      
+      // Invalidate cache
+      cache.timestamp = 0;
       
       return savedChallenge;
     } catch (err) {
