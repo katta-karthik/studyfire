@@ -39,18 +39,42 @@ const api = {
       const userId = getUserId();
       if (!userId) throw new Error('User not logged in');
       
-      console.log('📤 Sending challenge to backend:', {
-        ...challengeData,
-        betItems: challengeData.betItems ? `Array(${challengeData.betItems.length})` : undefined,
-        betItem: challengeData.betItem ? 'Object' : undefined
-      });
+      console.log('📤 ========== FRONTEND SENDING DEBUG ==========');
+      console.log('📤 betMode:', challengeData.betMode);
+      console.log('📤 betItems type BEFORE stringify:', typeof challengeData.betItems);
+      console.log('📤 betItems isArray BEFORE stringify:', Array.isArray(challengeData.betItems));
+      console.log('📤 betItem type BEFORE stringify:', typeof challengeData.betItem);
+      
+      if (challengeData.betItems) {
+        console.log('📤 betItems[0] type:', challengeData.betItems[0] ? typeof challengeData.betItems[0] : 'undefined');
+        console.log('📤 betItems sample:', challengeData.betItems[0] ? {
+          name: challengeData.betItems[0].name,
+          size: challengeData.betItems[0].size,
+          type: challengeData.betItems[0].type,
+          hasFileData: !!challengeData.betItems[0].fileData
+        } : 'empty');
+      }
+      
+      if (challengeData.betItem) {
+        console.log('📤 betItem sample:', {
+          name: challengeData.betItem.name,
+          size: challengeData.betItem.size,
+          type: challengeData.betItem.type,
+          hasFileData: !!challengeData.betItem.fileData
+        });
+      }
+      
+      const bodyToSend = { ...challengeData, userId };
+      const stringifiedBody = JSON.stringify(bodyToSend);
+      console.log('📤 Stringified body first 500 chars:', stringifiedBody.substring(0, 500));
+      console.log('📤 ==============================================');
       
       const response = await fetch(`${API_URL}/challenges`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ...challengeData, userId }),
+        body: stringifiedBody,
       });
       
       if (!response.ok) {
