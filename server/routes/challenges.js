@@ -141,17 +141,16 @@ router.post('/', async (req, res) => {
       challengeData.safeDaysRemaining = challengeData.safeDaysTotal;
     }
     
-    // Handle multi-bet mode: parse betItems if it's a stringified array
+    // Handle multi-bet mode: SAME APPROACH AS SINGLE BET
     if (challengeData.betMode === 'multi' && challengeData.betItems) {
       console.log('🔍 Processing multi-bet mode...');
       
-      // If betItems is a string, parse it to array
+      // If betItems is a string, parse it to array (SAME AS SINGLE BET)
       if (typeof challengeData.betItems === 'string') {
         try {
           console.log('⚠️ betItems received as string, parsing...');
-          const parsed = JSON.parse(challengeData.betItems);
-          console.log('✅ Parsed betItems:', Array.isArray(parsed) ? `Array of ${parsed.length} items` : typeof parsed);
-          challengeData.betItems = parsed;
+          challengeData.betItems = JSON.parse(challengeData.betItems);
+          console.log('✅ Parsed betItems:', Array.isArray(challengeData.betItems) ? `Array of ${challengeData.betItems.length} items` : typeof challengeData.betItems);
         } catch (parseError) {
           console.error('❌ Failed to parse betItems:', parseError);
           return res.status(400).json({ 
@@ -171,22 +170,10 @@ router.post('/', async (req, res) => {
         });
       }
       
-      // Ensure each bet item has required fields
-      challengeData.betItems = challengeData.betItems.map((bet, index) => ({
-        name: bet.name || '',
-        size: bet.size || 0,
-        type: bet.type || '',
-        uploadedAt: bet.uploadedAt ? new Date(bet.uploadedAt) : new Date(),
-        fileData: bet.fileData || '',
-        milestone: bet.milestone || (index + 1),
-        unlockDay: bet.unlockDay || 0,
-        isUnlocked: bet.isUnlocked || false,
-        unlockedAt: bet.unlockedAt ? new Date(bet.unlockedAt) : null
-      }));
-      
-      console.log(`✅ Multi-bet challenge with ${challengeData.betItems.length} bets properly formatted`);
+      // DON'T MODIFY - Let Mongoose handle it like single bet
+      console.log(`✅ Multi-bet challenge with ${challengeData.betItems.length} bets (letting Mongoose handle schema)`);
     } else if (challengeData.betItem) {
-      // Single bet mode - parse betItem if it's a string
+      // Single bet mode - parse betItem if it's a string (WORKING APPROACH)
       if (typeof challengeData.betItem === 'string') {
         try {
           console.log('⚠️ betItem received as string, parsing...');

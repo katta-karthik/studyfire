@@ -56,9 +56,17 @@ function App() {
   };
 
   const handleCreateChallenge = async (challenge) => {
-    await addChallenge(challenge);
-    await reloadChallenges(true); // Force refresh to show new challenge
-    setCurrentView('challenges'); // Go to challenges page after creating
+    try {
+      console.log('🔥 Creating challenge...');
+      await addChallenge(challenge);
+      console.log('✅ Challenge created, refreshing list...');
+      await reloadChallenges(true); // Force refresh to show new challenge
+      console.log('✅ Navigating to challenges view...');
+      setCurrentView('challenges'); // Go to challenges page after creating
+    } catch (error) {
+      console.error('❌ Failed to create challenge:', error);
+      alert('Failed to create challenge. Please check console for details.');
+    }
   };
 
   const pageVariants = {
