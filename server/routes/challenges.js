@@ -125,10 +125,29 @@ router.get('/:id', async (req, res) => {
 // CREATE new challenge
 router.post('/', async (req, res) => {
   try {
-    console.log('📥 Received challenge creation request');
+    console.log('📥 ========== CHALLENGE CREATION DEBUG ==========');
     console.log('📥 betMode:', req.body.betMode);
-    console.log('📥 betItems type:', typeof req.body.betItems);
-    console.log('📥 betItems value:', req.body.betItems ? JSON.stringify(req.body.betItems).substring(0, 200) : 'undefined');
+    console.log('📥 RAW betItems type:', typeof req.body.betItems);
+    console.log('📥 RAW betItem type:', typeof req.body.betItem);
+    console.log('📥 Is betItems array?:', Array.isArray(req.body.betItems));
+    console.log('📥 Is betItem object?:', typeof req.body.betItem === 'object' && req.body.betItem !== null);
+    
+    if (req.body.betItems) {
+      console.log('📥 betItems first 300 chars:', 
+        typeof req.body.betItems === 'string' 
+          ? req.body.betItems.substring(0, 300) 
+          : JSON.stringify(req.body.betItems).substring(0, 300)
+      );
+    }
+    
+    if (req.body.betItem) {
+      console.log('📥 betItem first 300 chars:', 
+        typeof req.body.betItem === 'string' 
+          ? req.body.betItem.substring(0, 300) 
+          : JSON.stringify(req.body.betItem).substring(0, 300)
+      );
+    }
+    console.log('📥 ===============================================');
     
     // Convert userId string to ObjectId if needed
     const challengeData = { ...req.body };
