@@ -39,6 +39,12 @@ const api = {
       const userId = getUserId();
       if (!userId) throw new Error('User not logged in');
       
+      console.log('📤 Sending challenge to backend:', {
+        ...challengeData,
+        betItems: challengeData.betItems ? `Array(${challengeData.betItems.length})` : undefined,
+        betItem: challengeData.betItem ? 'Object' : undefined
+      });
+      
       const response = await fetch(`${API_URL}/challenges`, {
         method: 'POST',
         headers: {
@@ -46,7 +52,13 @@ const api = {
         },
         body: JSON.stringify({ ...challengeData, userId }),
       });
-      if (!response.ok) throw new Error('Failed to create challenge');
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('❌ Backend error response:', errorData);
+        throw new Error(errorData.message || errorData.error || 'Failed to create challenge');
+      }
+      
       return await response.json();
     } catch (error) {
       console.error('Error creating challenge:', error);

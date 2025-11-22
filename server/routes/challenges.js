@@ -144,6 +144,8 @@ router.post('/', async (req, res) => {
     // Handle multi-bet mode: SAME APPROACH AS SINGLE BET
     if (challengeData.betMode === 'multi' && challengeData.betItems) {
       console.log('🔍 Processing multi-bet mode...');
+      console.log('🔍 betItems type:', typeof challengeData.betItems);
+      console.log('🔍 betItems[0] type:', challengeData.betItems[0] ? typeof challengeData.betItems[0] : 'undefined');
       
       // If betItems is a string, parse it to array (SAME AS SINGLE BET)
       if (typeof challengeData.betItems === 'string') {
@@ -170,8 +172,26 @@ router.post('/', async (req, res) => {
         });
       }
       
-      // DON'T MODIFY - Let Mongoose handle it like single bet
-      console.log(`✅ Multi-bet challenge with ${challengeData.betItems.length} bets (letting Mongoose handle schema)`);
+      // CRITICAL FIX: Check if betItems[0] is a string (double-stringified)
+      if (challengeData.betItems.length > 0 && typeof challengeData.betItems[0] === 'string') {
+        console.log('⚠️⚠️ betItems elements are strings! Parsing each element...');
+        try {
+          challengeData.betItems = challengeData.betItems.map((item, index) => {
+            const parsed = JSON.parse(item);
+            console.log(`  ✅ Parsed betItem ${index}:`, parsed.name);
+            return parsed;
+          });
+        } catch (parseError) {
+          console.error('❌ Failed to parse betItems elements:', parseError);
+          return res.status(400).json({ 
+            message: 'Invalid betItems elements format', 
+            error: 'Each betItem must be a valid JSON object',
+            details: parseError.message 
+          });
+        }
+      }
+      
+      console.log(`✅ Multi-bet challenge with ${challengeData.betItems.length} bets ready`);
     } else if (challengeData.betItem) {
       // Single bet mode - parse betItem if it's a string (WORKING APPROACH)
       if (typeof challengeData.betItem === 'string') {
