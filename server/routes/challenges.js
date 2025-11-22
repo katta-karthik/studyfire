@@ -125,7 +125,10 @@ router.get('/:id', async (req, res) => {
 // CREATE new challenge
 router.post('/', async (req, res) => {
   try {
-    console.log('📥 Received challenge creation request:', JSON.stringify(req.body, null, 2));
+    console.log('📥 Received challenge creation request');
+    console.log('📥 betMode:', req.body.betMode);
+    console.log('📥 betItems type:', typeof req.body.betItems);
+    console.log('📥 betItems value:', req.body.betItems ? JSON.stringify(req.body.betItems).substring(0, 200) : 'undefined');
     
     // Convert userId string to ObjectId if needed
     const challengeData = { ...req.body };
@@ -140,29 +143,48 @@ router.post('/', async (req, res) => {
     
     // Handle multi-bet mode: parse betItems if it's a stringified array
     if (challengeData.betMode === 'multi' && challengeData.betItems) {
+      console.log('🔍 Processing multi-bet mode...');
+      
       // If betItems is a string, parse it to array
       if (typeof challengeData.betItems === 'string') {
         try {
           console.log('⚠️ betItems received as string, parsing...');
-          challengeData.betItems = JSON.parse(challengeData.betItems);
+          const parsed = JSON.parse(challengeData.betItems);
+          console.log('✅ Parsed betItems:', Array.isArray(parsed) ? `Array of ${parsed.length} items` : typeof parsed);
+          challengeData.betItems = parsed;
         } catch (parseError) {
           console.error('❌ Failed to parse betItems:', parseError);
           return res.status(400).json({ 
             message: 'Invalid betItems format', 
-            error: 'betItems must be a valid JSON array' 
+            error: 'betItems must be a valid JSON array',
+            details: parseError.message 
           });
         }
       }
       
-      if (Array.isArray(challengeData.betItems)) {
-        console.log(`✅ Multi-bet challenge with ${challengeData.betItems.length} bets`);
-      } else {
-        console.error('❌ betItems is not an array:', typeof challengeData.betItems);
+      // Validate it's an array
+      if (!Array.isArray(challengeData.betItems)) {
+        console.error('❌ betItems is not an array after parsing:', typeof challengeData.betItems);
         return res.status(400).json({ 
           message: 'Invalid betItems format', 
           error: 'betItems must be an array' 
         });
       }
+      
+      // Ensure each bet item has required fields
+      challengeData.betItems = challengeData.betItems.map((bet, index) => ({
+        name: bet.name || '',
+        size: bet.size || 0,
+        type: bet.type || '',
+        uploadedAt: bet.uploadedAt ? new Date(bet.uploadedAt) : new Date(),
+        fileData: bet.fileData || '',
+        milestone: bet.milestone || (index + 1),
+        unlockDay: bet.unlockDay || 0,
+        isUnlocked: bet.isUnlocked || false,
+        unlockedAt: bet.unlockedAt ? new Date(bet.unlockedAt) : null
+      }));
+      
+      console.log(`✅ Multi-bet challenge with ${challengeData.betItems.length} bets properly formatted`);
     } else if (challengeData.betItem) {
       // Single bet mode - parse betItem if it's a string
       if (typeof challengeData.betItem === 'string') {
@@ -173,7 +195,8 @@ router.post('/', async (req, res) => {
           console.error('❌ Failed to parse betItem:', parseError);
           return res.status(400).json({ 
             message: 'Invalid betItem format', 
-            error: 'betItem must be a valid JSON object' 
+            error: 'betItem must be a valid JSON object',
+            details: parseError.message 
           });
         }
       }
