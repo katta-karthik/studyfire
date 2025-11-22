@@ -133,11 +133,20 @@ router.post('/', async (req, res) => {
     console.log('📥 Is betItem object?:', typeof req.body.betItem === 'object' && req.body.betItem !== null);
     
     if (req.body.betItems) {
-      console.log('📥 betItems first 300 chars:', 
+      console.log('📥 betItems first 500 chars:', 
         typeof req.body.betItems === 'string' 
-          ? req.body.betItems.substring(0, 300) 
-          : JSON.stringify(req.body.betItems).substring(0, 300)
+          ? req.body.betItems.substring(0, 500) 
+          : JSON.stringify(req.body.betItems).substring(0, 500)
       );
+      
+      if (Array.isArray(req.body.betItems) && req.body.betItems.length > 0) {
+        console.log('📥 betItems[0] type:', typeof req.body.betItems[0]);
+        console.log('📥 betItems[0] first 200 chars:', 
+          typeof req.body.betItems[0] === 'string'
+            ? req.body.betItems[0].substring(0, 200)
+            : JSON.stringify(req.body.betItems[0]).substring(0, 200)
+        );
+      }
     }
     
     if (req.body.betItem) {
@@ -160,57 +169,94 @@ router.post('/', async (req, res) => {
       challengeData.safeDaysRemaining = challengeData.safeDaysTotal;
     }
     
-    // Handle multi-bet mode: SAME APPROACH AS SINGLE BET
+    // Handle multi-bet mode: COMPREHENSIVE PARSING
     if (challengeData.betMode === 'multi' && challengeData.betItems) {
       console.log('🔍 Processing multi-bet mode...');
       console.log('🔍 betItems type:', typeof challengeData.betItems);
-      console.log('🔍 betItems[0] type:', challengeData.betItems[0] ? typeof challengeData.betItems[0] : 'undefined');
       
-      // If betItems is a string, parse it to array (SAME AS SINGLE BET)
+      // LAYER 1: If betItems is a string, parse it to array
       if (typeof challengeData.betItems === 'string') {
         try {
-          console.log('⚠️ betItems received as string, parsing...');
+          console.log('⚠️  LAYER 1: betItems is string, parsing...');
           challengeData.betItems = JSON.parse(challengeData.betItems);
-          console.log('✅ Parsed betItems:', Array.isArray(challengeData.betItems) ? `Array of ${challengeData.betItems.length} items` : typeof challengeData.betItems);
+          console.log('✅ LAYER 1: Parsed betItems to', Array.isArray(challengeData.betItems) ? `Array of ${challengeData.betItems.length}` : typeof challengeData.betItems);
         } catch (parseError) {
-          console.error('❌ Failed to parse betItems:', parseError);
+          console.error('❌ LAYER 1 FAILED:', parseError.message);
           return res.status(400).json({ 
-            message: 'Invalid betItems format', 
+            message: 'Invalid betItems format (Layer 1)', 
             error: 'betItems must be a valid JSON array',
             details: parseError.message 
           });
         }
       }
       
-      // Validate it's an array
+      // LAYER 2: Validate it's an array
       if (!Array.isArray(challengeData.betItems)) {
-        console.error('❌ betItems is not an array after parsing:', typeof challengeData.betItems);
+        console.error('❌ LAYER 2 FAILED: Not an array after parsing:', typeof challengeData.betItems);
         return res.status(400).json({ 
-          message: 'Invalid betItems format', 
-          error: 'betItems must be an array' 
+          message: 'Invalid betItems format (Layer 2)', 
+          error: 'betItems must be an array after parsing' 
         });
       }
       
-      // CRITICAL FIX: Check if betItems[0] is a string (double-stringified)
+      console.log('🔍 LAYER 2: betItems is array with', challengeData.betItems.length, 'items');
+      if (challengeData.betItems.length > 0) {
+        console.log('🔍 LAYER 2: betItems[0] type:', typeof challengeData.betItems[0]);
+      }
+      
+      // LAYER 3: Parse each element if it's a string (double-stringified)
       if (challengeData.betItems.length > 0 && typeof challengeData.betItems[0] === 'string') {
-        console.log('⚠️⚠️ betItems elements are strings! Parsing each element...');
+        console.log('⚠️  LAYER 3: Elements are strings! Parsing each...');
         try {
           challengeData.betItems = challengeData.betItems.map((item, index) => {
-            const parsed = JSON.parse(item);
-            console.log(`  ✅ Parsed betItem ${index}:`, parsed.name);
-            return parsed;
+            if (typeof item === 'string') {
+              const parsed = JSON.parse(item);
+              console.log(`  ✅ LAYER 3: Parsed item ${index}:`, parsed.name);
+              return parsed;
+            }
+            return item;
           });
         } catch (parseError) {
-          console.error('❌ Failed to parse betItems elements:', parseError);
+          console.error('❌ LAYER 3 FAILED:', parseError.message);
           return res.status(400).json({ 
-            message: 'Invalid betItems elements format', 
-            error: 'Each betItem must be a valid JSON object',
+            message: 'Invalid betItems format (Layer 3)', 
+            error: 'Failed to parse stringified betItems elements',
             details: parseError.message 
           });
         }
       }
       
-      console.log(`✅ Multi-bet challenge with ${challengeData.betItems.length} bets ready`);
+      // LAYER 4: Final validation - ensure all elements are valid objects
+      console.log('🔍 LAYER 4: Validating parsed objects...');
+      const invalidItems = [];
+      challengeData.betItems.forEach((item, index) => {
+        if (typeof item !== 'object' || item === null) {
+          invalidItems.push({ index, issue: 'not an object', type: typeof item });
+        } else if (!item.name) {
+          invalidItems.push({ index, issue: 'missing name', item });
+        } else if (!item.fileData) {
+          invalidItems.push({ index, issue: 'missing fileData', name: item.name });
+        }
+      });
+      
+      if (invalidItems.length > 0) {
+        console.error('❌ LAYER 4 FAILED: Invalid items:', invalidItems);
+        return res.status(400).json({ 
+          message: 'Invalid betItems format (Layer 4)', 
+          error: 'Some betItems are missing required fields (name, fileData)',
+          invalidItems 
+        });
+      }
+      
+      console.log(`✅ ALL LAYERS PASSED: Multi-bet challenge with ${challengeData.betItems.length} bets ready`);
+      console.log('✅ Final betItems[0] sample:', {
+        name: challengeData.betItems[0].name,
+        type: challengeData.betItems[0].type,
+        size: challengeData.betItems[0].size,
+        milestone: challengeData.betItems[0].milestone,
+        unlockDay: challengeData.betItems[0].unlockDay,
+        hasFileData: !!challengeData.betItems[0].fileData && challengeData.betItems[0].fileData.length > 100
+      });
     } else if (challengeData.betItem) {
       // Single bet mode - parse betItem if it's a string (WORKING APPROACH)
       if (typeof challengeData.betItem === 'string') {

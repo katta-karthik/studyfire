@@ -47,17 +47,20 @@ const challengeSchema = new mongoose.Schema({
   },
   
   // NEW: Multi-bet milestone system 🎁
-  betItems: [{
-    name: String,
-    size: Number,
-    type: String,
-    uploadedAt: Date,
-    fileData: String, // Base64 encoded file
-    milestone: Number, // Which bet number (1, 2, 3, etc.)
-    unlockDay: Number, // Day when this bet unlocks (e.g., 15, 30, 60)
-    isUnlocked: { type: Boolean, default: false }, // Has user reached this milestone?
-    unlockedAt: { type: Date, default: null } // When was it unlocked?
-  }],
+  betItems: {
+    type: [{
+      name: { type: String, required: true },
+      size: { type: Number, default: 0 },
+      type: { type: String, default: '' },
+      uploadedAt: { type: Date, default: Date.now },
+      fileData: { type: String, required: true }, // Base64 encoded file
+      milestone: { type: Number, default: 1 }, // Which bet number (1, 2, 3, etc.)
+      unlockDay: { type: Number, default: 0 }, // Day when this bet unlocks (e.g., 15, 30, 60)
+      isUnlocked: { type: Boolean, default: false }, // Has user reached this milestone?
+      unlockedAt: { type: Date, default: null } // When was it unlocked?
+    }],
+    default: []
+  },
   
   totalBets: {
     type: Number,
