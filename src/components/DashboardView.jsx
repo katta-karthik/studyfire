@@ -168,6 +168,7 @@ const Dashboard = ({ challenges, onReload }) => {
   // Streak Shields & Overall Streak
   const [streakShields, setStreakShields] = useState(0);
   const [overallStreak, setOverallStreak] = useState(0);
+  const [isResetting, setIsResetting] = useState(false);
   
   // AI-generated messages
   const [welcomeMsg, setWelcomeMsg] = useState("Loading...");
@@ -720,6 +721,42 @@ const Dashboard = ({ challenges, onReload }) => {
             <p className="text-2xl font-black text-blue-400">{totalDaysWorked}</p>
             <p className="text-xs text-gray-500">worked</p>
           </div>
+        </div>
+
+        {/* Reset All Data Button */}
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={async () => {
+              if (!confirm('⚠️ RESET EVERYTHING?\n\nThis will DELETE:\n• All challenges\n• All time entries\n• All stats & streaks\n• All shields\n\nThis cannot be undone!')) return;
+              if (!confirm('🔥 ARE YOU ABSOLUTELY SURE?\n\nType OK to confirm fresh start.')) return;
+              
+              setIsResetting(true);
+              try {
+                const userId = localStorage.getItem('userId');
+                const response = await fetch(`${API_URL}/reset-all-data`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId, confirmReset: 'RESET_EVERYTHING' })
+                });
+                const result = await response.json();
+                if (result.success) {
+                  alert('🔥 ALL DATA RESET! Refreshing...');
+                  localStorage.removeItem('lastCelebratedStreak');
+                  window.location.reload();
+                } else {
+                  alert('Error: ' + (result.error || 'Unknown error'));
+                }
+              } catch (err) {
+                alert('Error: ' + err.message);
+              } finally {
+                setIsResetting(false);
+              }
+            }}
+            disabled={isResetting}
+            className="text-xs text-gray-500 hover:text-red-400 transition px-2 py-1 rounded hover:bg-red-500/10"
+          >
+            {isResetting ? 'Resetting...' : '🔄 Reset All'}
+          </button>
         </div>
 
         {/* AI Streak Motivation */}
