@@ -69,6 +69,8 @@ router.get('/user/:userId', async (req, res) => {
       userId: user._id,
       username: user.username,
       name: user.name,
+      overallStreak: user.overallStreak || 0,
+      longestOverallStreak: user.longestOverallStreak || 0,
       streakShields: user.streakShields || 0,
       streakShieldsUsed: user.streakShieldsUsed || [],
       lastShieldEarnedAt: user.lastShieldEarnedAt || 0

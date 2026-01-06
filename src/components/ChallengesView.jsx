@@ -16,7 +16,7 @@ const ChallengesView = ({ challenges, onCreateNew, onDelete }) => {
         const msg = await getChallengesPageMotivation(activeChallenges.length, completedChallenges.length);
         setAiMessage(msg);
       } catch (error) {
-        console.error('Failed to load AI message:', error);
+        // Silent fail - use default message
       }
     };
     

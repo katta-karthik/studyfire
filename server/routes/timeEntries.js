@@ -201,10 +201,54 @@ router.post('/stop/:id', async (req, res) => {
           if (allChallengesComplete) {
             console.log('🔥🔥🔥 ALL CHALLENGES COMPLETE FOR TODAY! Updating streaks...');
             
+            // 🛡️ UPDATE OVERALL STREAK (for shield earning)
+            const user = await User.findById(userId);
+            if (user) {
+              const now = new Date();
+              const todayLocal = new Date(now.getTime() - (now.getTimezoneOffset() * 60000))
+                .toISOString()
+                .split('T')[0];
+              
+              // Check if we already updated overall streak today
+              if (user.lastOverallStreakDate !== todayLocal) {
+                // Check if yesterday was also completed (streak continues)
+                const yesterdayLocal = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+                yesterdayLocal.setDate(yesterdayLocal.getDate() - 1);
+                const yesterdayStr = yesterdayLocal.toISOString().split('T')[0];
+                
+                if (user.lastOverallStreakDate === yesterdayStr || user.overallStreak === 0) {
+                  // Streak continues!
+                  user.overallStreak += 1;
+                } else {
+                  // Streak was broken, start fresh
+                  user.overallStreak = 1;
+                }
+                
+                if (user.overallStreak > user.longestOverallStreak) {
+                  user.longestOverallStreak = user.overallStreak;
+                }
+                
+                user.lastOverallStreakDate = todayLocal;
+                
+                console.log(`📊 OVERALL STREAK: ${user.overallStreak} days (longest: ${user.longestOverallStreak})`);
+                
+                // 🛡️ AWARD STREAK SHIELD every 15 days of OVERALL streak!
+                if (user.overallStreak % 15 === 0 && user.overallStreak > 0 && user.lastShieldEarnedAt < user.overallStreak) {
+                  user.streakShields += 1;
+                  user.lastShieldEarnedAt = user.overallStreak;
+                  console.log(`🛡️✨ STREAK SHIELD EARNED! ${user.overallStreak} overall days = ${user.streakShields} total shields!`);
+                  console.log(`💪 Keep going! Next shield at ${user.overallStreak + 15} days!`);
+                }
+                
+                await user.save();
+              }
+            }
+            
             // Update streak for ALL challenges
             for (const c of allChallenges) {
-              // Check if this continues the streak
-              const yesterday = new Date();
+              // Check if this continues the streak (use local timezone)
+              const now = new Date();
+              const yesterday = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
               yesterday.setDate(yesterday.getDate() - 1);
               const yesterdayStr = yesterday.toISOString().split('T')[0];
               
@@ -220,18 +264,6 @@ router.post('/stop/:id', async (req, res) => {
                 if (c.currentStreak > c.longestStreak) {
                   c.longestStreak = c.currentStreak;
                 }
-                
-                // 🛡️ AWARD STREAK SHIELD every 15 days!
-                if (c.currentStreak % 15 === 0 && c.currentStreak > 0) {
-                  const user = await User.findById(userId);
-                  if (user && user.lastShieldEarnedAt < c.currentStreak) {
-                    user.streakShields += 1;
-                    user.lastShieldEarnedAt = c.currentStreak;
-                    await user.save();
-                    console.log(`🛡️✨ STREAK SHIELD EARNED! ${c.currentStreak} days = ${user.streakShields} total shields!`);
-                    console.log(`💪 Keep going! Next shield at ${c.currentStreak + 15} days!`);
-                  }
-                }
               } else {
                 // Yesterday was missed! Check if THIS challenge has Safe Days
                 if (c.safeDaysRemaining > 0) {
@@ -245,18 +277,6 @@ router.post('/stop/:id', async (req, res) => {
                   c.currentStreak += 1; // Streak continues!
                   if (c.currentStreak > c.longestStreak) {
                     c.longestStreak = c.currentStreak;
-                  }
-                  
-                  // 🛡️ AWARD STREAK SHIELD every 15 days (even when using Safe Day)!
-                  if (c.currentStreak % 15 === 0 && c.currentStreak > 0) {
-                    const user = await User.findById(userId);
-                    if (user && user.lastShieldEarnedAt < c.currentStreak) {
-                      user.streakShields += 1;
-                      user.lastShieldEarnedAt = c.currentStreak;
-                      await user.save();
-                      console.log(`🛡️✨ STREAK SHIELD EARNED! ${c.currentStreak} days = ${user.streakShields} total shields!`);
-                      console.log(`💪 Keep going! Next shield at ${c.currentStreak + 15} days!`);
-                    }
                   }
                   
                   console.log(`  ⚡⚡⚡ "${c.title}": SAFE DAY USED! Missed ${yesterdayStr} but SURVIVED!`);
@@ -284,12 +304,13 @@ router.post('/stop/:id', async (req, res) => {
                   // DON'T increment streak - this challenge is dead
                   c.currentStreak = 0;
                   
-                  console.log(`  🚨🚨🚨 CRITICAL: "${c.title}" FAILED! ALL OTHER CHALLENGES' STREAKS WILL BE RESET!`);
+                  console.log(`  🚨🚨🚨 CRITICAL: "${c.title}" FAILED! OVERALL STREAK WILL BE RESET!`);
                   
                   // Save the failed challenge immediately
                   await c.save();
                   
-                  // NEW: CHECK FOR STREAK SHIELDS BEFORE RESETTING ALL STREAKS
+                  // CHECK FOR STREAK SHIELDS BEFORE RESETTING OVERALL STREAK
+                  // Shield protects the USER'S OVERALL STREAK (consecutive days ALL challenges complete)
                   const user = await User.findById(userId);
                   
                   if (user && user.streakShields > 0) {
@@ -298,31 +319,30 @@ router.post('/stop/:id', async (req, res) => {
                     user.streakShieldsUsed = user.streakShieldsUsed || [];
                     user.streakShieldsUsed.push({
                       date: yesterdayStr,
-                      reason: `Saved streak when "${c.title}" failed`,
-                      streakAtTime: allChallenges.reduce((max, ch) => Math.max(max, ch.currentStreak), 0)
+                      reason: `Protected overall streak when "${c.title}" failed`,
+                      overallStreakAtTime: user.overallStreak || 0
                     });
+                    // DON'T reset overallStreak - shield saved it!
                     await user.save();
                     
-                    console.log(`  🛡️🛡️🛡️ STREAK SHIELD USED! Streaks SAVED from reset!`);
+                    console.log(`  🛡️🛡️🛡️ STREAK SHIELD USED! OVERALL STREAK SAVED!`);
+                    console.log(`  📊 Overall streak protected: ${user.overallStreak} days`);
                     console.log(`  📊 Shields remaining: ${user.streakShields}`);
                     if (user.streakShields === 0) {
-                      console.log(`  ⚠️⚠️⚠️ WARNING: LAST SHIELD USED! Next failure = ALL STREAKS RESET!`);
+                      console.log(`  ⚠️⚠️⚠️ WARNING: LAST SHIELD USED! Next failure = OVERALL STREAK RESETS!`);
                     }
-                    
-                    // Streaks are saved! Don't reset other challenges
                   } else {
-                    // NO SHIELDS - RESET ALL OTHER CHALLENGES' STREAKS TO ZERO
-                    console.log(`  � NO STREAK SHIELDS! Resetting all other active challenges' streaks to 0...`);
-                    for (const otherChallenge of allChallenges) {
-                      if (otherChallenge._id.toString() !== c._id.toString() && !otherChallenge.hasFailed) {
-                        const oldOtherStreak = otherChallenge.currentStreak;
-                        otherChallenge.currentStreak = 0; // RESET TO ZERO
-                        await otherChallenge.save();
-                        console.log(`  💔 "${otherChallenge.title}": Streak reset ${oldOtherStreak} → 0 (due to "${c.title}" failure)`);
-                      }
+                    // NO SHIELDS - RESET USER'S OVERALL STREAK TO ZERO
+                    console.log(`  💔 NO STREAK SHIELDS! Resetting overall streak to 0...`);
+                    
+                    if (user) {
+                      const oldOverallStreak = user.overallStreak || 0;
+                      user.overallStreak = 0; // RESET OVERALL STREAK
+                      await user.save();
+                      console.log(`  💔 Overall streak reset: ${oldOverallStreak} → 0 (due to "${c.title}" failure)`);
                     }
                     
-                    console.log(`  ☠️ ONE CHALLENGE FAILED = ALL STREAKS RESET. Game continues with remaining challenges.`);
+                    console.log(`  ☠️ CHALLENGE FAILED = OVERALL STREAK RESET. Game continues with remaining challenges.`);
                   }
                   
                   // Skip the rest for this failed challenge
@@ -398,8 +418,9 @@ router.post('/stop/:id', async (req, res) => {
     if (challengeId) {
       const challenge = await Challenge.findById(challengeId);
       
-      // Calculate yesterday's date (same logic as streak calculation)
-      const yesterday = new Date();
+      // Calculate yesterday's date (use local timezone to match other calculations)
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0];
       

@@ -22,8 +22,6 @@ const TimerView = ({ challenge, onUpdate, onBack }) => {
     const minutes = todayEntry?.minutes || 0;
     const seconds = todayEntry?.seconds || 0;
     const totalSeconds = minutes * 60 + seconds;
-    console.log(`🔍 Loading timer for ${today}:`, todayEntry ? `${minutes}m ${seconds}s (${totalSeconds}s total)` : 'Starting fresh (0s)');
-    console.log('📊 All completed days:', challenge.completedDays);
     return totalSeconds;
   };
 
@@ -125,10 +123,7 @@ const TimerView = ({ challenge, onUpdate, onBack }) => {
       const currentMinutes = Math.floor(elapsedSeconds / 60);
       const currentSeconds = elapsedSeconds % 60;
       
-      console.log(`🔄 Auto-save check: ${currentMinutes}m ${currentSeconds}s (${elapsedSeconds}s total), isRunning: ${isRunning}`);
-      
       if (elapsedSeconds === 0) {
-        console.log('⏭️ Skipping save - no time to save yet');
         return; // Don't save if no time tracked
       }
       
@@ -157,9 +152,6 @@ const TimerView = ({ challenge, onUpdate, onBack }) => {
         // DON'T update currentStreak here - only when midnight verification happens
       };
 
-      console.log(`💾 AUTO-SAVING: ${currentMinutes}m ${currentSeconds}s at ${new Date().toLocaleTimeString()}`);
-      console.log('📤 Sending to API:', updatedChallenge);
-      
       onUpdate(challenge._id || challenge.id, updatedChallenge);
       setLastSaved(new Date());
     }, 10000); // Every 10 seconds
@@ -237,8 +229,6 @@ const TimerView = ({ challenge, onUpdate, onBack }) => {
     const currentMinutes = Math.floor(elapsedSeconds / 60);
     const currentSeconds = elapsedSeconds % 60;
     
-    console.log(`⏸️ PAUSE clicked - elapsed: ${currentMinutes}m ${currentSeconds}s (${elapsedSeconds}s total)`);
-    
     // Load AI feedback when stopping
     try {
       const wasProductive = currentMinutes >= challenge.dailyTargetMinutes;
@@ -274,11 +264,7 @@ const TimerView = ({ challenge, onUpdate, onBack }) => {
         // DON'T mark as completed - user can come back and continue!
       };
 
-      console.log(`💾 SAVING ON PAUSE: ${currentMinutes}m ${currentSeconds}s`);
-      console.log('📤 Sending to API:', updatedChallenge);
       onUpdate(challenge._id || challenge.id, updatedChallenge);
-    } else {
-      console.log('⏭️ Not saving - no time tracked yet');
     }
   };
 
@@ -348,8 +334,6 @@ const TimerView = ({ challenge, onUpdate, onBack }) => {
             keepalive: true
           });
         }
-        
-        console.log(`💾 SAVING BEFORE CLOSE: ${currentMinutes}m ${currentSeconds}s`);
       }
     };
 

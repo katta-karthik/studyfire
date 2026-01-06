@@ -90,6 +90,63 @@ app.use('/api/planner', plannerRoutes);
 app.use('/api/inbox', inboxRoutes);
 app.use('/api/notifications', notificationRoutes);
 
+// 🔥 RESET ENDPOINT - DELETE THIS AFTER USE! 🔥
+app.post('/api/reset-all-data', async (req, res) => {
+  try {
+    const { userId, confirmReset } = req.body;
+    
+    if (confirmReset !== 'RESET_EVERYTHING') {
+      return res.status(400).json({ error: 'Confirmation required. Send confirmReset: "RESET_EVERYTHING"' });
+    }
+    
+    const User = require('./models/User');
+    const Challenge = require('./models/Challenge');
+    const TimeEntry = require('./models/TimeEntry');
+    const CalendarEvent = require('./models/CalendarEvent');
+    const InboxTask = require('./models/InboxTask');
+    const Notification = require('./models/Notification');
+    const Page = require('./models/Page');
+    const Project = require('./models/Project');
+    const DailySchedule = require('./models/DailySchedule');
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Delete all user data
+    const results = {
+      challenges: (await Challenge.deleteMany({ userId })).deletedCount,
+      timeEntries: (await TimeEntry.deleteMany({ userId })).deletedCount,
+      calendarEvents: (await CalendarEvent.deleteMany({ userId })).deletedCount,
+      inboxTasks: (await InboxTask.deleteMany({ userId })).deletedCount,
+      notifications: (await Notification.deleteMany({ userId })).deletedCount,
+      pages: (await Page.deleteMany({ userId })).deletedCount,
+      projects: (await Project.deleteMany({ userId })).deletedCount,
+      dailySchedules: (await DailySchedule.deleteMany({ userId })).deletedCount,
+    };
+    
+    // Reset user stats
+    user.overallStreak = 0;
+    user.longestOverallStreak = 0;
+    user.lastOverallStreakDate = null;
+    user.streakShields = 0;
+    user.lastShieldEarnedAt = null;
+    user.streakShieldsUsed = [];
+    user.totalTimeWorked = 0;
+    user.lastActiveDate = null;
+    await user.save();
+    
+    res.json({ 
+      success: true, 
+      message: '🔥 ALL DATA RESET! Fresh start!',
+      deleted: results 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 

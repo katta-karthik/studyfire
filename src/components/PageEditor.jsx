@@ -47,9 +47,6 @@ export default function PageEditor({ page, onClose, user }) {
     setSaving(true);
     setSaveError(false);
     try {
-      console.log('💾 Saving page:', page._id);
-      console.log('📝 Data:', { title, content, coverImage, tags, deadline });
-      
       const response = await fetch(`${API_URL}/pages/${page._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -69,7 +66,6 @@ export default function PageEditor({ page, onClose, user }) {
       }
       
       const savedData = await response.json();
-      console.log('✅ Saved successfully:', savedData);
       setLastSaved(new Date());
       setSaveError(false);
     } catch (error) {

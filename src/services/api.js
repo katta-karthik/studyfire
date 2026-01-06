@@ -39,53 +39,23 @@ const api = {
       const userId = getUserId();
       if (!userId) throw new Error('User not logged in');
       
-      console.log('📤 ========== FRONTEND SENDING DEBUG ==========');
-      console.log('📤 betMode:', challengeData.betMode);
-      console.log('📤 betItems type BEFORE stringify:', typeof challengeData.betItems);
-      console.log('📤 betItems isArray BEFORE stringify:', Array.isArray(challengeData.betItems));
-      console.log('📤 betItem type BEFORE stringify:', typeof challengeData.betItem);
-      
-      if (challengeData.betItems) {
-        console.log('📤 betItems[0] type:', challengeData.betItems[0] ? typeof challengeData.betItems[0] : 'undefined');
-        console.log('📤 betItems sample:', challengeData.betItems[0] ? {
-          name: challengeData.betItems[0].name,
-          size: challengeData.betItems[0].size,
-          type: challengeData.betItems[0].type,
-          hasFileData: !!challengeData.betItems[0].fileData
-        } : 'empty');
-      }
-      
-      if (challengeData.betItem) {
-        console.log('📤 betItem sample:', {
-          name: challengeData.betItem.name,
-          size: challengeData.betItem.size,
-          type: challengeData.betItem.type,
-          hasFileData: !!challengeData.betItem.fileData
-        });
-      }
-      
       const bodyToSend = { ...challengeData, userId };
-      const stringifiedBody = JSON.stringify(bodyToSend);
-      console.log('📤 Stringified body first 500 chars:', stringifiedBody.substring(0, 500));
-      console.log('📤 ==============================================');
       
       const response = await fetch(`${API_URL}/challenges`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: stringifiedBody,
+        body: JSON.stringify(bodyToSend),
       });
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        console.error('❌ Backend error response:', errorData);
         throw new Error(errorData.message || errorData.error || 'Failed to create challenge');
       }
       
       return await response.json();
     } catch (error) {
-      console.error('Error creating challenge:', error);
       throw error;
     }
   },
@@ -93,9 +63,6 @@ const api = {
   // Update challenge
   updateChallenge: async (id, updates) => {
     try {
-      console.log(`🌐 API: Updating challenge ${id}`);
-      console.log('📤 Update payload:', updates);
-      
       const response = await fetch(`${API_URL}/challenges/${id}`, {
         method: 'PUT',
         headers: {
@@ -104,19 +71,12 @@ const api = {
         body: JSON.stringify(updates),
       });
       
-      console.log('📡 API Response status:', response.status);
-      
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API Error response:', errorText);
         throw new Error('Failed to update challenge');
       }
       
-      const result = await response.json();
-      console.log('✅ API Response data:', result);
-      return result;
+      return await response.json();
     } catch (error) {
-      console.error('❌ Error updating challenge:', error);
       throw error;
     }
   },

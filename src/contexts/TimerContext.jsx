@@ -93,13 +93,10 @@ export const TimerProvider = ({ children }) => {
       
       if (response.ok) {
         const progress = await response.json();
-        console.log('🔄 Today Progress from server:', progress);
         setTodayProgress(progress);
-      } else {
-        console.error('❌ Failed to fetch today progress:', response.status);
       }
     } catch (error) {
-      console.error('Error refreshing today progress:', error);
+      // Silent fail
     }
   };
 

@@ -89,7 +89,7 @@ export default function CalendarView({ user }) {
             method: 'PATCH',
           });
         } catch (err) {
-          console.log('Task not in inbox or error syncing');
+          // Silently fail - task might not be in inbox
         }
       }
       
@@ -107,7 +107,7 @@ export default function CalendarView({ user }) {
             }),
           });
         } catch (err) {
-          console.log('Task not in planner or error syncing');
+          // Silently fail - task might not be in planner
         }
       }
       
@@ -136,7 +136,7 @@ export default function CalendarView({ user }) {
             method: 'DELETE',
           });
         } catch (err) {
-          console.log('Task not in inbox or already deleted');
+          // Silently fail - task might not be in inbox
         }
       }
       
@@ -154,7 +154,7 @@ export default function CalendarView({ user }) {
             }),
           });
         } catch (err) {
-          console.log('Task not in planner or already deleted');
+          // Silently fail - task might not be in planner
         }
       }
       
@@ -186,7 +186,7 @@ export default function CalendarView({ user }) {
             body: JSON.stringify({ task: updates.title }),
           });
         } catch (err) {
-          console.log('Task not in inbox or error syncing');
+          // Silently fail - task might not be in inbox
         }
       }
       
@@ -205,7 +205,7 @@ export default function CalendarView({ user }) {
             }),
           });
         } catch (err) {
-          console.log('Task not in planner or error syncing');
+          // Silently fail - task might not be in planner
         }
       }
     } catch (error) {

@@ -175,7 +175,6 @@ const TimeTracker = () => {
       // NEW: Check if a challenge FAILED (ran out of safe days)
       if (data.challengeFailureInfo) {
         const { failedChallengeTitle, failedBetItem, longestStreak } = data.challengeFailureInfo;
-        console.log(`💀 Challenge "${failedChallengeTitle}" FAILED! Bet burned, all streaks reset!`);
         
         setChallengeFailureNotification({
           title: failedChallengeTitle,
@@ -192,7 +191,6 @@ const TimeTracker = () => {
       // 🎮 Check if any bets were just unlocked!
       else if (data.betUnlockInfo) {
         const { challengeTitle, currentStreak, unlockedBets } = data.betUnlockInfo;
-        console.log(`🎁🎁🎁 BET UNLOCKED! "${challengeTitle}" - ${unlockedBets.length} bets unlocked at Day ${currentStreak}!`);
         
         setBetUnlockNotification({
           challengeTitle,
@@ -217,7 +215,6 @@ const TimeTracker = () => {
       // ELSE: Check if a Safe Day was used (only if challenge didn't fail)
       else if (data.safeDayInfo) {
         const { challengeTitle, safeDaysRemaining, safeDaysTotal } = data.safeDayInfo;
-        console.log(`⚡ Safe Day used for "${challengeTitle}"! ${safeDaysRemaining}/${safeDaysTotal} remaining`);
         
         // Get AI roast message
         try {

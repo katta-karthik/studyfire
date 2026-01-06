@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Target, TrendingUp, Calendar, Clock as ClockIcon, ChevronLeft, ChevronRight, Flame, Play, CheckCircle, Circle, Shield } from 'lucide-react';
+import { Trophy, Target, TrendingUp, Calendar, Clock as ClockIcon, ChevronLeft, ChevronRight, ChevronDown, Flame, Play, CheckCircle, Circle, Shield } from 'lucide-react';
 import { useTimer } from '../contexts/TimerContext';
 import { getWelcomeMessage, getStreakMotivation, getDailyMotivation } from '../services/geminiService';
 import api from '../services/api';
@@ -165,8 +165,9 @@ const Dashboard = ({ challenges, onReload }) => {
   const { todayProgress, refreshTodayProgress, activeTimer, startTimer, stopTimer, formattedTime } = useTimer();
   const [refreshKey, setRefreshKey] = useState(0);
   
-  // Streak Shields
+  // Streak Shields & Overall Streak
   const [streakShields, setStreakShields] = useState(0);
+  const [overallStreak, setOverallStreak] = useState(0);
   
   // AI-generated messages
   const [welcomeMsg, setWelcomeMsg] = useState("Loading...");
@@ -178,41 +179,32 @@ const Dashboard = ({ challenges, onReload }) => {
     setRefreshKey(prev => prev + 1);
   }, []);
 
-  // Fetch user's Streak Shields
+  // Fetch user's Streak Shields & Overall Streak (once on mount, refreshes with challenges)
   useEffect(() => {
-    const fetchUserShields = async () => {
+    const fetchUserData = async () => {
       try {
         const userData = await api.getUserDetails();
         setStreakShields(userData.streakShields || 0);
-        console.log(`🛡️ User has ${userData.streakShields} Streak Shields`);
+        setOverallStreak(userData.overallStreak || 0);
       } catch (error) {
-        console.error('Error fetching user shields:', error);
+        // Silent fail - shields will show 0
       }
     };
     
-    fetchUserShields();
-    
-    // Refresh shields every 10 seconds
-    const interval = setInterval(fetchUserShields, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchUserData();
+  }, [challenges]); // Refresh when challenges update
 
   // Refresh today's progress on mount and when challenges change
   useEffect(() => {
-    console.log('🔄 Dashboard: Challenges updated, count:', challenges.length);
-    challenges.forEach(c => {
-      console.log(`  - "${c.title}": ${c.completedDays?.length || 0} completed days, totalMinutes: ${c.totalMinutes}`);
-    });
     refreshTodayProgress();
   }, [challenges, refreshKey]);
 
-  // Auto-refresh challenges every 5 seconds while on dashboard
+  // Auto-refresh challenges every 60 seconds (reduced from 5s for performance)
   useEffect(() => {
     if (onReload) {
       const interval = setInterval(() => {
-        console.log('⏰ Auto-refreshing challenges from backend...');
-        onReload(); // Reload challenges from backend
-      }, 5000); // Every 5 seconds
+        onReload();
+      }, 60000); // Every 60 seconds
 
       return () => clearInterval(interval);
     }
@@ -237,8 +229,6 @@ const Dashboard = ({ challenges, onReload }) => {
       
       // If streak increased (meaning we earned a new streak day!)
       if (currentTotalStreak > lastCelebratedStreak && currentTotalStreak > 0) {
-        console.log(`🎉🎉🎉 STREAK INCREASED! ${lastCelebratedStreak} → ${currentTotalStreak} days!`);
-        
         // Fire epic confetti celebration!
         const duration = 3000; // 3 seconds
         const animationEnd = Date.now() + duration;
@@ -278,32 +268,25 @@ const Dashboard = ({ challenges, onReload }) => {
     }
   }, [challenges]);
 
-  // Load AI-generated messages
+  // Load AI-generated messages (only once on mount, cached by geminiService)
   useEffect(() => {
     const loadAIMessages = async () => {
       try {
-        // Get streak stats
         const activeChallenges = challenges.filter(c => c.isActive && !c.isCompleted);
         const totalStreak = activeChallenges.reduce((sum, c) => sum + c.currentStreak, 0);
         const longestStreak = Math.max(...challenges.map(c => c.longestStreak), 0);
         
-        console.log('🤖 Loading AI messages with:', { totalStreak, longestStreak });
-        
-        // Load messages
         const [welcome, streak, quote] = await Promise.all([
           getWelcomeMessage('Champion', totalStreak),
           getStreakMotivation(totalStreak, longestStreak),
           getDailyMotivation()
         ]);
         
-        console.log('🤖 AI Responses:', { welcome, streak, quote });
-        
         setWelcomeMsg(welcome);
         setStreakMsg(streak);
         setDailyQuote(quote);
       } catch (error) {
-        console.error('Failed to load AI messages:', error);
-        // Keep default fallback messages
+        // Silent fail - use default messages
       }
     };
     
@@ -356,19 +339,12 @@ const Dashboard = ({ challenges, onReload }) => {
     const today = new Date().toISOString().split('T')[0];
     let todayMinutes = 0;
     
-    console.log('📅 Calculating today stats for date:', today);
-    
     challenges.forEach(challenge => {
       const todayEntry = challenge.completedDays?.find(day => day.date === today);
       if (todayEntry) {
-        console.log(`  - "${challenge.title}": ${todayEntry.minutes} min (from completedDays)`);
         todayMinutes += todayEntry.minutes;
-      } else {
-        console.log(`  - "${challenge.title}": NO entry for today in completedDays`);
       }
     });
-    
-    console.log(`📅 Total today: ${todayMinutes} minutes`);
     
     return {
       minutes: todayMinutes,
@@ -566,8 +542,6 @@ const Dashboard = ({ challenges, onReload }) => {
                 targetMinutes: challenge.dailyTargetMinutes
               };
               
-              console.log(`📊 Challenge "${challenge.title}": ${progress.minutesLogged}/${progress.targetMinutes} min, completed: ${progress.isCompleted}`);
-              
               // Calculate progress percentage
               const progressPercentage = Math.min((progress.minutesLogged / progress.targetMinutes) * 100, 100);
               const isThisChallengeActive = activeTimer?.challengeId === challengeId;
@@ -722,13 +696,24 @@ const Dashboard = ({ challenges, onReload }) => {
             <p className="text-2xl font-black text-fire-400">{totalStreak}</p>
             <p className="text-xs text-gray-500">days</p>
           </div>
-          <div className="text-center p-3 bg-gradient-to-br from-purple-500/10 to-indigo-500/10 rounded-xl border border-purple-500/20 group hover:border-purple-400/40 transition cursor-help" title="Earn 1 shield every 15 days. Shields save your streak when a challenge fails!">
-            <p className="text-xs text-gray-400 mb-1">Streak Shields</p>
-            <div className="flex items-center justify-center gap-2">
-              <Shield className="w-5 h-5 text-purple-400 group-hover:scale-110 transition" />
+          <div className="text-center p-3 bg-gradient-to-br from-purple-500/10 to-indigo-500/10 rounded-xl border border-purple-500/20 group hover:border-purple-400/40 transition cursor-help relative overflow-hidden" title={`Earn 1 shield every 15 consecutive days (all challenges). Shields save ALL your streaks when a challenge fails!\n\nYour overall streak: ${overallStreak} days`}>
+            {/* Glow effect when shields > 0 */}
+            {streakShields > 0 && (
+              <div className="absolute inset-0 bg-purple-500/10 animate-pulse" />
+            )}
+            <p className="text-xs text-gray-400 mb-1 relative z-10">🛡️ Streak Shields</p>
+            <div className="flex items-center justify-center gap-2 relative z-10">
+              <Shield className="w-6 h-6 text-purple-400 group-hover:scale-110 transition drop-shadow-lg" fill={streakShields > 0 ? "rgba(168, 85, 247, 0.3)" : "none"} />
               <p className="text-2xl font-black text-purple-400">{streakShields}</p>
             </div>
-            <p className="text-xs text-gray-500">protection</p>
+            <p className="text-xs text-purple-400/70 relative z-10">
+              {(() => {
+                // Use overall streak (consecutive days ALL challenges complete)
+                if (overallStreak === 0) return 'Earn at 15 days';
+                const daysToNext = 15 - (overallStreak % 15);
+                return daysToNext === 15 ? '🎉 Just Earned!' : `Next: ${daysToNext} days`;
+              })()}
+            </p>
           </div>
           <div className="text-center p-3 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl border border-blue-500/20">
             <p className="text-xs text-gray-400 mb-1">Total Days</p>
@@ -1125,24 +1110,261 @@ const Dashboard = ({ challenges, onReload }) => {
         </motion.div>
       )}
 
-      {/* Progress Message */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="glass-card p-6 rounded-2xl border border-white/10 text-center"
-      >
-        <TrendingUp className="w-12 h-12 text-fire-400 mx-auto mb-3" />
-        <h3 className="text-2xl font-bold text-white mb-2">
-          {totalStreak > 0 ? "Keep it going!" : "Start your journey!"}
-        </h3>
-        <p className="text-gray-400">
-          {totalStreak > 0
-            ? `You're ${totalStreak} days into your consistency journey. Don't break the chain! 🔥`
-            : "Create your first challenge and build an unstoppable streak! 🚀"}
-        </p>
-      </motion.div>
+      {/* Yearly Streak Heatmap - LeetCode Style */}
+      <YearlyStreakHeatmap challenges={challenges} />
     </div>
+  );
+};
+
+// LeetCode-style Yearly Streak Heatmap Component
+// ⚠️ IMPORTANT: This grid is INDEPENDENT from main dashboard stats!
+// - Once a strike is earned and recorded here, it stays FOREVER
+// - Streak resets, failures, safe days do NOT affect this grid
+// - This is a permanent visual record of your consistency history
+const YearlyStreakHeatmap = ({ challenges }) => {
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  
+  // Get available years from challenges data
+  const getAvailableYears = () => {
+    const years = new Set([new Date().getFullYear()]);
+    challenges.forEach(challenge => {
+      challenge.completedDays?.forEach(day => {
+        if (day.date) {
+          const year = parseInt(day.date.split('-')[0]);
+          if (year) years.add(year);
+        }
+      });
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  };
+  
+  const availableYears = getAvailableYears();
+  
+  // Get all strike dates - ONLY when ALL challenges completed for that day
+  // Same logic as main dashboard: strike only if every challenge reached goal
+  const getStrikeDates = () => {
+    const dates = new Set();
+    
+    // Group by date: count how many challenges have entries and how many completed
+    const dateStats = new Map(); // date -> { total: number, completed: number }
+    
+    challenges.forEach(challenge => {
+      challenge.completedDays?.forEach(day => {
+        if (!dateStats.has(day.date)) {
+          dateStats.set(day.date, { total: 0, completed: 0 });
+        }
+        const stats = dateStats.get(day.date);
+        stats.total++;
+        if (day.isGoalReached) {
+          stats.completed++;
+        }
+      });
+    });
+    
+    // A date is a strike ONLY if ALL challenges for that day completed their goal
+    dateStats.forEach((stats, date) => {
+      if (stats.total > 0 && stats.total === stats.completed) {
+        dates.add(date);
+      }
+    });
+    
+    return dates;
+  };
+  
+  const strikeDates = getStrikeDates();
+  
+  // Check if date has a strike (permanent - never removed)
+  const hasStrike = (dateStr) => strikeDates.has(dateStr);
+  
+  // Generate FULL year grid (all 365/366 days)
+  const generateYearGrid = () => {
+    const weeks = [];
+    const startDate = new Date(selectedYear, 0, 1);
+    const endDate = new Date(selectedYear, 11, 31);
+    
+    // Adjust to start from Sunday of the week containing Jan 1
+    const firstDayOfWeek = startDate.getDay();
+    startDate.setDate(startDate.getDate() - firstDayOfWeek);
+    
+    let currentDate = new Date(startDate);
+    
+    // Generate all weeks until we pass Dec 31
+    while (currentDate <= endDate || currentDate.getDay() !== 0) {
+      const week = [];
+      for (let day = 0; day < 7; day++) {
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const dayNum = String(currentDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${dayNum}`;
+        
+        const isCurrentYear = currentDate.getFullYear() === selectedYear;
+        const isToday = currentDate.toDateString() === new Date().toDateString();
+        
+        week.push({
+          date: new Date(currentDate),
+          dateStr,
+          isCurrentYear,
+          isToday,
+          hasStrike: isCurrentYear && hasStrike(dateStr),
+        });
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      weeks.push(week);
+      
+      if (currentDate.getFullYear() > selectedYear) break;
+    }
+    
+    return weeks;
+  };
+  
+  const weeks = generateYearGrid();
+  
+  // Total strikes count for selected year (permanent count)
+  const totalStrikes = Array.from(strikeDates).filter(date => date.startsWith(selectedYear.toString())).length;
+  
+  // Calculate max streak for selected year (historical max, not current)
+  const calculateMaxStreak = () => {
+    const sortedDates = Array.from(strikeDates)
+      .filter(date => date.startsWith(selectedYear.toString()))
+      .sort();
+    
+    let maxStreak = 0;
+    let currentStreak = 0;
+    let prevDate = null;
+    
+    sortedDates.forEach(dateStr => {
+      const date = new Date(dateStr);
+      if (prevDate) {
+        const diffDays = Math.floor((date - prevDate) / (1000 * 60 * 60 * 24));
+        if (diffDays === 1) {
+          currentStreak++;
+        } else {
+          currentStreak = 1;
+        }
+      } else {
+        currentStreak = 1;
+      }
+      maxStreak = Math.max(maxStreak, currentStreak);
+      prevDate = date;
+    });
+    
+    return maxStreak;
+  };
+  
+  const maxStreak = calculateMaxStreak();
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.35 }}
+      className="glass-card p-5 rounded-2xl border border-orange-500/20 bg-gradient-to-br from-gray-900/80 to-gray-800/50"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold text-white">{totalStrikes}</span>
+          <span className="text-sm text-gray-400">strikes in {selectedYear}</span>
+        </div>
+        <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500">Total active days:</span>
+            <span className="text-white font-semibold">{totalStrikes}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500">Best streak:</span>
+            <span className="text-orange-400 font-semibold">{maxStreak}</span>
+          </div>
+          {/* Year Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowYearDropdown(!showYearDropdown)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-gray-700/80 hover:bg-gray-600/80 rounded-lg text-white text-sm font-medium transition-all"
+            >
+              {selectedYear}
+              <ChevronDown className={`w-4 h-4 transition-transform ${showYearDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            {showYearDropdown && (
+              <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[100px] overflow-hidden">
+                {availableYears.map(year => (
+                  <button
+                    key={year}
+                    onClick={() => {
+                      setSelectedYear(year);
+                      setShowYearDropdown(false);
+                    }}
+                    className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-700 transition-colors ${
+                      year === selectedYear ? 'text-orange-400 bg-gray-700/50' : 'text-white'
+                    }`}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Heatmap Grid - Full Year like LeetCode */}
+      <div className="w-full">
+        <div className="grid gap-[3px]" style={{ 
+          gridTemplateColumns: `repeat(${weeks.length}, 1fr)`,
+        }}>
+          {/* Render columns (weeks) */}
+          {weeks.map((week, weekIndex) => (
+            <div key={weekIndex} className="flex flex-col gap-[3px]">
+              {week.map((day, dayIndex) => (
+                <div
+                  key={dayIndex}
+                  className={`
+                    w-full aspect-square rounded-[2px] transition-all
+                    ${day.isCurrentYear 
+                      ? day.hasStrike 
+                        ? 'bg-orange-500' 
+                        : 'bg-gray-700/60'
+                      : 'bg-transparent'
+                    }
+                    ${day.isToday ? 'ring-1 ring-orange-400' : ''}
+                  `}
+                  title={day.isCurrentYear 
+                    ? `${day.date.toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}${day.hasStrike ? ' - 🔥 Strike earned!' : ''}`
+                    : ''
+                  }
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        
+        {/* Month labels */}
+        <div className="flex justify-between mt-2">
+          {months.map((month, idx) => (
+            <span key={idx} className="text-[10px] text-gray-500 flex-1 text-center">{month}</span>
+          ))}
+        </div>
+      </div>
+      
+      {/* Legend */}
+      <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-700/30">
+        <span className="text-[10px] text-gray-500">Less</span>
+        <div className="flex gap-[2px]">
+          <div className="w-[10px] h-[10px] rounded-[2px] bg-gray-700/60" />
+          <div className="w-[10px] h-[10px] rounded-[2px] bg-orange-900/70" />
+          <div className="w-[10px] h-[10px] rounded-[2px] bg-orange-600" />
+          <div className="w-[10px] h-[10px] rounded-[2px] bg-orange-500" />
+        </div>
+        <span className="text-[10px] text-gray-500">More</span>
+      </div>
+    </motion.div>
   );
 };
 

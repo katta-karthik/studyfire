@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Challenge = require('../models/Challenge');
+const User = require('../models/User');
 
 // Get all challenges for a user
 router.get('/', async (req, res) => {
@@ -15,12 +16,114 @@ router.get('/', async (req, res) => {
     // Convert userId to ObjectId
     const userObjectId = new mongoose.Types.ObjectId(userId);
     
-    // Auto-cleanup: Deactivate completed challenges from previous days
     // Use local date instead of UTC
     const now = new Date();
     const today = new Date(now.getTime() - (now.getTimezoneOffset() * 60000))
       .toISOString()
       .split('T')[0];
+    
+    // 🔥 CRITICAL: Check for missed challenges on app load!
+    // This catches challenges that were abandoned (user never logged time)
+    const activeChallenges = await Challenge.find({
+      userId: userObjectId,
+      isActive: true,
+      isCompleted: false,
+      hasFailed: false
+    });
+    
+    for (const challenge of activeChallenges) {
+      // Find the last day they completed their goal
+      const sortedDays = (challenge.completedDays || [])
+        .filter(d => d.isGoalReached)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      const lastActiveDate = sortedDays.length > 0 
+        ? new Date(sortedDays[0].date) 
+        : new Date(challenge.createdAt);
+      
+      // Calculate days since last activity
+      const todayDate = new Date(today);
+      const daysSinceLastActivity = Math.floor((todayDate - lastActiveDate) / (1000 * 60 * 60 * 24));
+      
+      // Days missed = days since last activity - 1 (today doesn't count as missed yet)
+      const missedDays = Math.max(0, daysSinceLastActivity - 1);
+      let safeDaysRemaining = challenge.safeDaysRemaining || 0;
+      
+      if (missedDays > 0) {
+        // First, use up safe days for missed days
+        const safeDaysToUse = Math.min(safeDaysRemaining, missedDays);
+        
+        if (safeDaysToUse > 0) {
+          // Mark safe days as used
+          challenge.safeDaysUsed = challenge.safeDaysUsed || [];
+          for (let i = 0; i < safeDaysToUse; i++) {
+            const missedDate = new Date(lastActiveDate);
+            missedDate.setDate(missedDate.getDate() + i + 1);
+            const missedDateStr = missedDate.toISOString().split('T')[0];
+            
+            // Only add if not already recorded
+            if (!challenge.safeDaysUsed.some(d => d.date === missedDateStr)) {
+              challenge.safeDaysUsed.push({
+                date: missedDateStr,
+                reason: 'Missed daily goal - Auto-detected on app load'
+              });
+            }
+          }
+          
+          challenge.safeDaysRemaining = safeDaysRemaining - safeDaysToUse;
+          safeDaysRemaining = challenge.safeDaysRemaining;
+          
+          console.log(`⚡ SAFE DAYS USED for "${challenge.title}": ${safeDaysToUse} used, ${safeDaysRemaining} remaining`);
+        }
+        
+        // If still more missed days than safe days can cover, FAIL the challenge
+        if (missedDays > safeDaysToUse + safeDaysRemaining) {
+          console.log(`💀 FAILED CHALLENGE DETECTED: "${challenge.title}"`);
+          console.log(`   Last activity: ${sortedDays[0]?.date || 'never'}`);
+          console.log(`   Days missed: ${missedDays}, Safe days available: ${safeDaysToUse + safeDaysRemaining}`);
+          
+          challenge.hasFailed = true;
+          challenge.isActive = false;
+          challenge.isBetLocked = true;
+          challenge.currentStreak = 0;
+          challenge.failedDates = challenge.failedDates || [];
+          challenge.failedDates.push({
+            date: today,
+            reason: `Missed ${missedDays} days with insufficient safe days - Auto-detected on app load`
+          });
+          
+          console.log(`   ❌ Challenge marked as FAILED and bet LOCKED`);
+          
+          // CHECK FOR STREAK SHIELDS - Protect overall streak when challenge fails
+          const user = await User.findById(userId);
+          if (user) {
+            if (user.streakShields > 0) {
+              // USE A STREAK SHIELD! 🛡️
+              user.streakShields -= 1;
+              user.streakShieldsUsed = user.streakShieldsUsed || [];
+              user.streakShieldsUsed.push({
+                date: today,
+                reason: `Protected overall streak when "${challenge.title}" auto-failed`,
+                overallStreakAtTime: user.overallStreak || 0
+              });
+              await user.save();
+              console.log(`   🛡️ STREAK SHIELD USED! Overall streak protected: ${user.overallStreak} days`);
+              console.log(`   📊 Shields remaining: ${user.streakShields}`);
+            } else {
+              // NO SHIELDS - RESET OVERALL STREAK
+              const oldOverallStreak = user.overallStreak || 0;
+              user.overallStreak = 0;
+              await user.save();
+              console.log(`   💔 NO SHIELDS! Overall streak reset: ${oldOverallStreak} → 0`);
+            }
+          }
+        }
+        
+        await challenge.save();
+      }
+    }
+    
+    // Auto-cleanup: Deactivate completed challenges from previous days
     await Challenge.updateMany(
       {
         userId: userObjectId,
@@ -447,7 +550,11 @@ router.post('/:id/stop-session', async (req, res) => {
       return res.status(404).json({ message: 'Challenge not found' });
     }
     
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date instead of UTC
+    const now = new Date();
+    const today = new Date(now.getTime() - (now.getTimezoneOffset() * 60000))
+      .toISOString()
+      .split('T')[0];
     
     // Find or create today's entry
     let todayEntry = challenge.completedDays.find(day => day.date === today);
@@ -489,8 +596,9 @@ router.post('/:id/stop-session', async (req, res) => {
     
     // Update streak only if goal just reached (not already reached)
     if (todayEntry.isGoalReached && !wasGoalReached) {
-      // Check if this continues the streak
-      const yesterday = new Date();
+      // Check if this continues the streak (use local timezone)
+      const nowLocal = new Date();
+      const yesterday = new Date(nowLocal.getTime() - (nowLocal.getTimezoneOffset() * 60000));
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0];
       

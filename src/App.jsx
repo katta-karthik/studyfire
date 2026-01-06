@@ -7,7 +7,7 @@ import ChallengesView from './components/ChallengesView';
 import ChallengeCreation from './components/ChallengeCreation';
 import TimerView from './components/TimerView';
 import TimeTracker from './components/TimeTracker';
-import CommandCenter from './components/CommandCenter';
+// CommandCenter removed for performance
 import { useChallenges } from './hooks/useChallenges';
 import { useTimer } from './contexts/TimerContext';
 
@@ -22,7 +22,6 @@ function App() {
   // Reload challenges when switching to dashboard
   useEffect(() => {
     if (currentView === 'dashboard' && isLoggedIn) {
-      console.log('🔄 Reloading challenges for Dashboard...');
       reloadChallenges();
     }
   }, [currentView, isLoggedIn]);
@@ -34,14 +33,12 @@ function App() {
     const name = localStorage.getItem('name');
     
     if (userId && username) {
-      console.log('✅ User already logged in:', username);
       setIsLoggedIn(true);
       setCurrentUser({ userId, username, name });
     }
   }, []);
 
   const handleLogin = (userData) => {
-    console.log('🔐 Login successful!', userData);
     setIsLoggedIn(true);
     setCurrentUser(userData);
   };
@@ -57,15 +54,11 @@ function App() {
 
   const handleCreateChallenge = async (challenge) => {
     try {
-      console.log('🔥 Creating challenge...');
       await addChallenge(challenge);
-      console.log('✅ Challenge created, refreshing list...');
-      await reloadChallenges(true); // Force refresh to show new challenge
-      console.log('✅ Navigating to challenges view...');
-      setCurrentView('challenges'); // Go to challenges page after creating
+      await reloadChallenges(true);
+      setCurrentView('challenges');
     } catch (error) {
-      console.error('❌ Failed to create challenge:', error);
-      alert('Failed to create challenge. Please check console for details.');
+      alert('Failed to create challenge. Please try again.');
     }
   };
 
@@ -138,17 +131,6 @@ function App() {
                     >
                       <ListChecks className="w-5 h-5" />
                       Challenges
-                    </button>
-                    <button
-                      onClick={() => setCurrentView('command')}
-                      className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
-                        currentView === 'command'
-                          ? 'bg-fire-500 text-white'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      <Target className="w-5 h-5" />
-                      Command Center
                     </button>
                   </div>
 
@@ -261,18 +243,7 @@ function App() {
                   </motion.div>
                 )}
 
-                {currentView === 'command' && (
-                  <motion.div
-                    key="command"
-                    variants={pageVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    transition={pageTransition}
-                  >
-                    <CommandCenter user={{ _id: currentUser.userId, name: currentUser.name }} />
-                  </motion.div>
-                )}
+                {/* Command Center removed from UI for performance - code kept in files */}
               </AnimatePresence>
             </div>
           </div>

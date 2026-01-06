@@ -277,7 +277,6 @@ export async function getNewChallengeMessage(challengeTitle, duration, targetMin
 // Clear cache (call this when user logs out or wants fresh messages)
 export function clearMessageCache() {
   messageCache.clear();
-  console.log('🔥 Message cache cleared! Fresh savage humor incoming...');
 }
 
 // Get random motivational quote for dashboard

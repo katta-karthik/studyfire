@@ -134,7 +134,7 @@ export default function InboxView({ user }) {
             }),
           });
         } catch (err) {
-          console.log('Task not in planner or error syncing');
+          // Silently fail - task might not be in planner
         }
       }
       
@@ -152,7 +152,7 @@ export default function InboxView({ user }) {
             });
           }
         } catch (err) {
-          console.log('Task not in calendar or error syncing');
+          // Silently fail - task might not be in calendar
         }
       }
       
@@ -203,7 +203,7 @@ export default function InboxView({ user }) {
             }),
           });
         } catch (err) {
-          console.log('Old planner entry not found');
+          // Silently fail - old entry might not exist
         }
       }
       
@@ -212,7 +212,7 @@ export default function InboxView({ user }) {
         try {
           await fetch(`${API_URL}/calendar/by-page/${taskId}`, { method: 'DELETE' });
         } catch (err) {
-          console.log('Old calendar entry not found');
+          // Silently fail - old entry might not exist
         }
       }
       
@@ -237,7 +237,7 @@ export default function InboxView({ user }) {
             }),
           });
         } catch (err) {
-          console.log('Error adding to planner');
+          // Silently fail - planner might have issues
         }
       }
       
@@ -257,7 +257,7 @@ export default function InboxView({ user }) {
             }),
           });
         } catch (err) {
-          console.log('Error adding to calendar');
+          // Silently fail - calendar might have issues
         }
       }
       
@@ -304,7 +304,7 @@ export default function InboxView({ user }) {
             }),
           });
         } catch (err) {
-          console.log('Task not in planner or error syncing');
+          // Silently fail - task might not be in planner
         }
       }
       
@@ -324,7 +324,7 @@ export default function InboxView({ user }) {
             });
           }
         } catch (err) {
-          console.log('Task not in calendar or error syncing');
+          // Silently fail - task might not be in calendar
         }
       }
       
@@ -360,7 +360,7 @@ export default function InboxView({ user }) {
             }),
           });
         } catch (err) {
-          console.log('Task not in planner or already deleted');
+          // Silently fail - task might not be in planner
         }
       }
       
@@ -368,7 +368,7 @@ export default function InboxView({ user }) {
       try {
         await fetch(`${API_URL}/calendar/by-page/${taskId}`, { method: 'DELETE' });
       } catch (err) {
-        console.log('Task not in calendar or already deleted');
+        // Silently fail - task might not be in calendar
       }
       
       setTasks(tasks.filter(t => t._id !== taskId));

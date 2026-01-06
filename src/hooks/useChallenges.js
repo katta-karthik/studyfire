@@ -28,17 +28,14 @@ export const useChallenges = (isLoggedIn) => {
       // Check cache first (unless forced refresh)
       const now = Date.now();
       if (!forceRefresh && cache.data && (now - cache.timestamp) < cache.duration) {
-        console.log('📦 Using cached challenges');
         setChallenges(cache.data);
         setLoading(false);
         return;
       }
 
       setLoading(true);
-      console.log('🔄 Loading challenges from backend...');
       
       const data = await api.getChallenges();
-      console.log('✅ Challenges loaded:', data.length, 'challenges');
       
       // Update cache
       cache.data = data;
@@ -47,7 +44,6 @@ export const useChallenges = (isLoggedIn) => {
       setChallenges(data);
       setError(null);
     } catch (err) {
-      console.error('❌ Error loading challenges:', err);
       setError('Failed to load challenges from server.');
       setChallenges([]);
     } finally {
@@ -70,9 +66,7 @@ export const useChallenges = (isLoggedIn) => {
         isBetReturned: false,
       };
 
-      console.log('📝 Creating challenge in backend...');
       const savedChallenge = await api.createChallenge(newChallenge);
-      console.log('✅ Challenge created:', savedChallenge);
       
       // Invalidate cache FIRST
       cache.timestamp = 0;
@@ -83,19 +77,13 @@ export const useChallenges = (isLoggedIn) => {
       
       return savedChallenge;
     } catch (err) {
-      console.error('❌ Error adding challenge:', err);
       throw err;
     }
   };
 
   const updateChallenge = async (challengeId, updates) => {
     try {
-      console.log(`🔄 useChallenges: Updating challenge ${challengeId}`);
-      console.log('📦 Updates:', updates);
-      
       const updatedChallenge = await api.updateChallenge(challengeId, updates);
-      
-      console.log('✅ Challenge updated successfully:', updatedChallenge);
       
       // Invalidate cache
       cache.timestamp = 0;
@@ -109,17 +97,13 @@ export const useChallenges = (isLoggedIn) => {
         )
       );
     } catch (err) {
-      console.error('❌ Error updating challenge:', err);
       throw err;
     }
   };
 
   const deleteChallenge = async (challengeId) => {
     try {
-      console.log(`🗑️ Deleting challenge ${challengeId}`);
       await api.deleteChallenge(challengeId);
-      
-      console.log('✅ Challenge deleted successfully');
       
       // Invalidate cache
       cache.timestamp = 0;
