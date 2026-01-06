@@ -1147,8 +1147,14 @@ const Dashboard = ({ challenges, onReload }) => {
         </motion.div>
       )}
 
-      {/* Yearly Streak Heatmap - LeetCode Style */}
-      <YearlyStreakHeatmap challenges={challenges} />
+      {/* Yearly Streak Heatmap - LeetCode Style - ALWAYS VISIBLE */}
+      <div className="mt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xl">🗓️</span>
+          <h2 className="text-lg font-bold text-white">Yearly Strike Map</h2>
+        </div>
+        <YearlyStreakHeatmap challenges={challenges} />
+      </div>
     </div>
   );
 };
