@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, ListChecks, LogOut, User, Clock, Target } from 'lucide-react';
+import { LayoutDashboard, ListChecks, LogOut, User, Clock, Target, ChevronDown, RotateCcw } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://studyfire-backend.onrender.com/api';
 import Login from './components/Login';
 import DashboardView from './components/DashboardView';
 import ChallengesView from './components/ChallengesView';
@@ -16,8 +18,39 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedChallenge, setSelectedChallenge] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const { challenges, loading, addChallenge, updateChallenge, deleteChallenge, reloadChallenges } = useChallenges(isLoggedIn);
   const { activeTimer, formattedTime } = useTimer();
+
+  // Reset all data function
+  const handleResetAll = async () => {
+    if (!confirm('⚠️ RESET EVERYTHING?\n\nThis will DELETE:\n• All challenges\n• All time entries\n• All stats & streaks\n• All shields\n\nThis cannot be undone!')) return;
+    if (!confirm('🔥 ARE YOU ABSOLUTELY SURE?\n\nClick OK to confirm fresh start.')) return;
+    
+    setIsResetting(true);
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`${API_URL}/reset-all-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, confirmReset: 'RESET_EVERYTHING' })
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('🔥 ALL DATA RESET! Refreshing...');
+        localStorage.removeItem('lastCelebratedStreak');
+        window.location.reload();
+      } else {
+        alert('Error: ' + (result.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setIsResetting(false);
+      setShowProfileMenu(false);
+    }
+  };
 
   // Reload challenges when switching to dashboard
   useEffect(() => {
@@ -145,19 +178,45 @@ function App() {
                       </div>
                     )}
                     
-                    <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 rounded-full">
-                      <User className="w-4 h-4 text-fire-400" />
-                      <span className="text-white text-sm font-medium">
-                        {currentUser?.name || currentUser?.username}
-                      </span>
+                    {/* Profile Dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowProfileMenu(!showProfileMenu)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-full transition"
+                      >
+                        <User className="w-4 h-4 text-fire-400" />
+                        <span className="text-white text-sm font-medium">
+                          {currentUser?.name || currentUser?.username}
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
+                      </button>
+                      
+                      {showProfileMenu && (
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden z-50">
+                          <div className="p-3 border-b border-gray-700">
+                            <p className="text-sm font-medium text-white">{currentUser?.name || currentUser?.username}</p>
+                            <p className="text-xs text-gray-400">@{currentUser?.username}</p>
+                          </div>
+                          <div className="p-1">
+                            <button
+                              onClick={handleResetAll}
+                              disabled={isResetting}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition"
+                            >
+                              <RotateCcw className={`w-4 h-4 ${isResetting ? 'animate-spin' : ''}`} />
+                              {isResetting ? 'Resetting...' : 'Reset All Data'}
+                            </button>
+                            <button
+                              onClick={handleLogout}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:bg-gray-700 rounded-lg transition"
+                            >
+                              <LogOut className="w-4 h-4" />
+                              Logout
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <button
-                      onClick={handleLogout}
-                      className="p-2 hover:bg-red-500/20 rounded-full transition group"
-                      title="Logout"
-                    >
-                      <LogOut className="w-5 h-5 text-gray-400 group-hover:text-red-400 transition" />
-                    </button>
                   </div>
                 </div>
               </div>
